@@ -43,6 +43,7 @@ A bug fix without a regression test isn't done — this applies from M1 onward, 
 - Checked against the 8pt spacing / contrast / touch-target rules in `Bauhaven-Coding-Standards.md`.
 - EN and FR both checked — French runs 15–25% longer, and a screen that only works in English isn't done.
 - RLS-backed: the screen trusts the database's authorization, it doesn't duplicate permission logic in the client.
+- **Any doc this screen's behavior touches is updated in the same commit** — feature spec, wireframe, schema doc, or architecture plan, per `Bauhaven-Coding-Standards.md`'s documentation-sync rule. A screen that works but leaves its spec describing something else isn't done, it's drifted.
 
 ## What's explicitly not in scope for the MVP milestones above
 

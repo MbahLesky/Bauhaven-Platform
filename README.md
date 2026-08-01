@@ -15,6 +15,10 @@ supabase/       # schema migrations, RLS policies, Supabase CLI config
 
 **New to this project?** Read `docs/Bauhaven-Project-Brief.md` first — it's the front door and links to everything else.
 
+## Contributing — from any of the three repos
+
+Docs here are the source of truth for `bauhaven-admin-web` and `bauhaven-academy-web` alike. If a change in either app touches something a doc describes — schema, RLS, a feature's actual behavior, a screen's structure, an API contract — update that doc **in the same commit**, not as a follow-up. Full rule and examples: `docs/Bauhaven-Coding-Standards.md`, "Documentation stays in sync."
+
 ## Supabase setup
 
 1. Install the Supabase CLI: `npm install -g supabase`

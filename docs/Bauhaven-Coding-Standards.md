@@ -116,6 +116,19 @@ Per stack: **Vitest + React Testing Library** (query by role/text, not CSS class
 - Trunk-based: `main` always releasable, `feature/<kebab>` and `fix/<kebab>` branch from it, merged back in days not weeks.
 - Never commit a broken build to `main`. Squash-merge messy branches.
 
+## Documentation stays in sync — non-negotiable
+
+`bauhaven-platform/docs` is the source of truth every repo defers to. When code changes something a doc describes, the doc update is **part of the same change**, not a follow-up task — matching the git-and-versioning rule that a commit is one logical change: if the summary needs "and update the docs later," it needs to happen now instead.
+
+**What counts as doc-affecting:**
+- Database schema or RLS policy changes → update `Bauhaven-Database-Schema.md` (and the migration files themselves are the schema — keep them and the doc's description of them from drifting apart)
+- A feature's actual behavior diverging from its spec (scope, permissions, approval flow) → update the relevant `Bauhaven-*-Feature-Spec.md`
+- A screen's real structure diverging meaningfully from its wireframe → update the wireframe HTML, not just the code
+- Any API/webhook contract change (request shape, auth, error handling) → update `Bauhaven-Architecture-Plan.md`
+- A new library, pattern, or convention adopted → update `Bauhaven-Tech-Stack.md` or this file
+
+**Cross-repo consistency matters more than any single repo's correctness.** A change in `bauhaven-admin-web` that touches something Academy-web also relies on (auth flow, shared Supabase types, a brand token) isn't done until the doc describing that shared thing reflects it — check `bauhaven-platform/docs` before assuming a change is local to one repo. This project has already hit real cases of docs and code silently drifting (an RLS policy that didn't match its own spec, a webhook draft that put a secret in a query string) — both were caught by deliberately checking, not by luck.
+
 ## Pre-commit checklist
 
 - [ ] Names read as intent; no leftover `temp`/`test2`
@@ -127,3 +140,4 @@ Per stack: **Vitest + React Testing Library** (query by role/text, not CSS class
 - [ ] Accent colors checked against the semantic-color table
 - [ ] Formatter and linter pass clean
 - [ ] The diff does one thing, matching one commit message
+- [ ] **If this change affects anything a doc in `bauhaven-platform/docs` describes, that doc is updated in this same commit/PR**
