@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bauhaven — Portfolio (Site proposal)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Montserrat:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F8F8F8; --ink:#1E1E1E; --muted:#6B6560; --surface:#FFFFFF;
+    --red:#D72638; --orange:#F26B3B; --gold:#FED500; --green:#54BE8D; --blue:#26AAD1;
+    --red-tint:#FBE6E9; --orange-tint:#FDEAE2; --green-tint:#E8F6EF; --blue-tint:#E5F5FA;
+    --rule:#E7E2D6;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:'Archivo',sans-serif; background:var(--paper); color:var(--ink); -webkit-font-smoothing:antialiased;}
+  h1,h2,h3,.display{font-family:'Montserrat',sans-serif;}
+  a{color:inherit; text-decoration:none;}
+  .wrap{max-width:1120px; margin:0 auto; padding:0 32px;}
+
+  /* ---------- Nav ---------- */
+  nav{border-bottom:1px solid var(--rule); background:var(--paper); position:sticky; top:0; z-index:10;}
+  .nav-inner{display:flex; align-items:center; justify-content:space-between; padding:18px 32px; max-width:1120px; margin:0 auto;}
+  .wordmark{display:flex; align-items:center; gap:10px; font-family:'Montserrat',sans-serif; font-weight:700; font-size:19px;}
+  /* .mark intentionally omitted — real logo asset (SVG/PNG) not yet provided; wordmark text stands in for now */
+  .nav-links{display:flex; gap:8px; align-items:center;}
+  .nav-link{padding:8px 16px; font-size:14px; font-weight:500; color:var(--muted); border-radius:20px;}
+  .nav-link.active{color:var(--ink); background:var(--surface); border:1px solid var(--rule);}
+  .cta{background:var(--ink); color:var(--paper); padding:10px 20px; border-radius:20px; font-size:14px; font-weight:600;}
+
+  .screen{display:none;}
+  .screen.active{display:block;}
+
+  /* ---------- HOME / HERO ---------- */
+  .hero{padding:72px 0 56px 0; position:relative; overflow:hidden;}
+  /* decorative .hero-shapes (circle/triangle/square) removed — those were an invented motif, not part of the real brand */
+
+  .eyebrow{font-size:13px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:var(--red); margin-bottom:16px; position:relative; z-index:1;}
+  .hero h1{font-size:52px; line-height:1.05; font-weight:700; max-width:640px; letter-spacing:-0.01em; margin-bottom:20px; position:relative; z-index:1;}
+  .hero p{font-size:17px; color:var(--muted); max-width:480px; line-height:1.55; margin-bottom:28px; position:relative; z-index:1;}
+  .hero-ctas{display:flex; gap:12px; position:relative; z-index:1;}
+  .btn-primary{background:var(--ink); color:var(--paper); padding:13px 24px; border-radius:8px; font-size:14px; font-weight:600;}
+  .btn-secondary{background:none; border:1.5px solid var(--ink); color:var(--ink); padding:12px 24px; border-radius:8px; font-size:14px; font-weight:600;}
+
+  .teaser-head{display:flex; justify-content:space-between; align-items:flex-end; margin:64px 0 24px 0;}
+  .teaser-head h2{font-size:26px; font-weight:700;}
+  .teaser-head a{font-size:14px; font-weight:600; color:var(--blue); border-bottom:1.5px solid var(--blue); padding-bottom:2px;}
+  .teaser-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:20px; margin-bottom:80px;}
+
+  /* ---------- Portfolio cards ---------- */
+  .p-card{background:var(--surface); border:1px solid var(--rule); border-radius:14px; overflow:hidden; cursor:pointer; transition:transform 0.15s;}
+  .p-card:hover{transform:translateY(-3px);}
+  .p-media{aspect-ratio:4/3; background:var(--rule); position:relative; display:flex; align-items:center; justify-content:center;}
+  .p-media.tint-blue{background:var(--blue-tint);}
+  .p-media.tint-orange{background:var(--orange-tint);}
+  .p-media.tint-green{background:var(--green-tint);}
+  .p-media-mark{width:44px; height:44px; border-radius:50%; background:rgba(0,0,0,0.06);}
+  .p-body{padding:18px 20px;}
+  .p-tag{display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; padding:3px 9px; border-radius:12px; margin-bottom:10px;}
+  .p-tag.blue{background:var(--blue-tint); color:var(--blue);}
+  .p-tag.orange{background:var(--orange-tint); color:var(--orange);}
+  .p-tag.green{background:var(--green-tint); color:var(--green);}
+  .p-title{font-size:16px; font-weight:700; margin-bottom:4px;}
+  .p-author{font-size:13px; color:var(--muted);}
+
+  /* ---------- PORTFOLIO GRID PAGE ---------- */
+  .grid-head{padding:56px 0 32px 0;}
+  .grid-head h1{font-size:38px; font-weight:700; margin-bottom:12px;}
+  .grid-head p{font-size:16px; color:var(--muted); max-width:520px;}
+  .filter-row{display:flex; gap:8px; margin:32px 0 32px 0; flex-wrap:wrap;}
+  .filter-chip{padding:8px 16px; border-radius:20px; font-size:13px; font-weight:600; border:1px solid var(--rule); color:var(--muted); background:var(--surface);}
+  .filter-chip.active{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+  .full-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:22px; padding-bottom:80px;}
+
+  /* ---------- CASE STUDY / DETAIL PAGE ---------- */
+  .case-hero{padding:48px 0 0 0;}
+  .case-back{font-size:13px; font-weight:600; color:var(--muted); margin-bottom:20px; display:inline-block;}
+  .case-tag{display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; padding:4px 10px; border-radius:12px; background:var(--blue-tint); color:var(--blue); margin-bottom:16px;}
+  .case-hero h1{font-size:40px; font-weight:700; max-width:680px; margin-bottom:16px;}
+  .case-byline{display:flex; align-items:center; gap:12px; margin-bottom:36px;}
+  .case-avatar{width:44px; height:44px; border-radius:50%; background:var(--blue-tint);}
+  .case-byline-name{font-weight:700; font-size:14px;}
+  .case-byline-meta{font-size:13px; color:var(--muted);}
+  .case-media{aspect-ratio:16/8; background:var(--blue-tint); border-radius:16px; margin-bottom:40px; display:flex; align-items:center; justify-content:center; color:var(--blue); font-size:13px; font-weight:600;}
+
+  .case-body{display:grid; grid-template-columns:2fr 1fr; gap:48px; padding-bottom:80px;}
+  .case-body h3{font-size:15px; font-weight:700; margin:28px 0 10px 0;}
+  .case-body h3:first-child{margin-top:0;}
+  .case-body p{font-size:15px; line-height:1.7; color:#2A2A2E; margin-bottom:4px;}
+  .pull-quote{
+    font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:600; line-height:1.4; color:var(--ink);
+    border-left:3px solid var(--red); padding-left:20px; margin:28px 0;
+  }
+  .pull-quote-attr{font-family:'Inter',sans-serif; font-size:13px; font-weight:600; color:var(--muted); margin-top:10px;}
+  .case-sidebar{background:var(--surface); border:1px solid var(--rule); border-radius:14px; padding:22px; height:fit-content;}
+  .sidebar-row{display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--rule); font-size:13px;}
+  .sidebar-row:last-child{border-bottom:none;}
+  .sidebar-label{color:var(--muted);}
+  .sidebar-value{font-weight:600;}
+
+  .note{
+    font-size:12px; color:var(--muted); background:var(--surface); border:1px dashed var(--rule);
+    border-radius:10px; padding:12px 16px; margin:24px 0;
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <div class="wordmark">
+      Bauhaven
+    </div>
+    <div class="nav-links">
+      <a class="nav-link" onclick="showScreen('home', this)">Home</a>
+      <a class="nav-link" onclick="showScreen('grid', this)">Portfolio</a>
+      <a class="nav-link">Blog</a>
+      <a class="nav-link">Programs</a>
+    </div>
+    <div class="cta">Apply now</div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ================= HOME / HERO ================= -->
+  <div class="screen active" id="screen-home">
+    <div class="hero">
+      <div class="eyebrow">Interns &amp; students, real work</div>
+      <h1>Our students build things that ship.</h1>
+      <p>Bauhaven trains interns, students, and bootcampers on real programs — and this is where their work lives after they finish.</p>
+      <div class="hero-ctas">
+        <div class="btn-primary" onclick="showScreen('grid')">Explore the portfolio</div>
+        <div class="btn-secondary">See our programs</div>
+      </div>
+    </div>
+
+    <div class="teaser-head">
+      <h2>Recently shipped</h2>
+      <a onclick="showScreen('grid')">View all work →</a>
+    </div>
+    <div class="teaser-grid">
+      <div class="p-card" onclick="showScreen('case')">
+        <div class="p-media tint-blue"><div class="p-media-mark"></div></div>
+        <div class="p-body">
+          <span class="p-tag blue">Web Development</span>
+          <div class="p-title">A booking platform for a local tailor shop</div>
+          <div class="p-author">Fatima Njoya</div>
+        </div>
+      </div>
+      <div class="p-card" onclick="showScreen('case')">
+        <div class="p-media tint-orange"><div class="p-media-mark"></div></div>
+        <div class="p-body">
+          <span class="p-tag orange">UI/UX Design</span>
+          <div class="p-title">Redesigning checkout for a mobile grocery app</div>
+          <div class="p-author">Sam Student</div>
+        </div>
+      </div>
+      <div class="p-card" onclick="showScreen('case')">
+        <div class="p-media tint-green"><div class="p-media-mark"></div></div>
+        <div class="p-body">
+          <span class="p-tag green">Data Analysis</span>
+          <div class="p-title">Visualizing transit delays across Yaoundé</div>
+          <div class="p-author">Brice Talla</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= PORTFOLIO GRID ================= -->
+  <div class="screen" id="screen-grid">
+    <div class="grid-head">
+      <h1>Portfolio</h1>
+      <p>Projects from interns, students, and bootcamp participants — curated by our team, built by them.</p>
+      <div class="filter-row">
+        <div class="filter-chip active">All programs</div>
+        <div class="filter-chip">Web Development</div>
+        <div class="filter-chip">UI/UX Design</div>
+        <div class="filter-chip">Data Analysis</div>
+      </div>
+    </div>
+
+    <div class="full-grid">
+      <div class="p-card" onclick="showScreen('case')">
+        <div class="p-media tint-blue"><div class="p-media-mark"></div></div>
+        <div class="p-body"><span class="p-tag blue">Web Development</span><div class="p-title">A booking platform for a local tailor shop</div><div class="p-author">Fatima Njoya</div></div>
+      </div>
+      <div class="p-card" onclick="showScreen('case')">
+        <div class="p-media tint-orange"><div class="p-media-mark"></div></div>
+        <div class="p-body"><span class="p-tag orange">UI/UX Design</span><div class="p-title">Redesigning checkout for a mobile grocery app</div><div class="p-author">Sam Student</div></div>
+      </div>
+      <div class="p-card" onclick="showScreen('case')">
+        <div class="p-media tint-green"><div class="p-media-mark"></div></div>
+        <div class="p-body"><span class="p-tag green">Data Analysis</span><div class="p-title">Visualizing transit delays across Yaoundé</div><div class="p-author">Brice Talla</div></div>
+      </div>
+      <div class="p-card" onclick="showScreen('case')">
+        <div class="p-media tint-blue"><div class="p-media-mark"></div></div>
+        <div class="p-body"><span class="p-tag blue">Web Development</span><div class="p-title">Inventory tracker for a school supply store</div><div class="p-author">Otis Other</div></div>
+      </div>
+      <div class="p-card" onclick="showScreen('case')">
+        <div class="p-media tint-orange"><div class="p-media-mark"></div></div>
+        <div class="p-body"><span class="p-tag orange">UI/UX Design</span><div class="p-title">Onboarding flow for a savings app</div><div class="p-author">Grace Fon</div></div>
+      </div>
+      <div class="p-card" onclick="showScreen('case')">
+        <div class="p-media tint-green"><div class="p-media-mark"></div></div>
+        <div class="p-body"><span class="p-tag green">Data Analysis</span><div class="p-title">Forecasting attendance drop-off by program</div><div class="p-author">Marc Biya</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= CASE STUDY DETAIL ================= -->
+  <div class="screen" id="screen-case">
+    <div class="case-hero">
+      <a class="case-back" onclick="showScreen('grid')">← Back to Portfolio</a>
+      <div class="case-tag">Web Development</div>
+      <h1>A booking platform for a local tailor shop</h1>
+      <div class="case-byline">
+        <div class="case-avatar"></div>
+        <div>
+          <div class="case-byline-name">Fatima Njoya</div>
+          <div class="case-byline-meta">Web Development Bootcamp · Cohort 4</div>
+        </div>
+      </div>
+      <div class="case-media">Project screenshot / media placeholder</div>
+    </div>
+
+    <div class="case-body">
+      <div>
+        <h3>The brief</h3>
+        <p>A local tailor shop was managing appointments entirely over WhatsApp, with no way to see availability at a glance. Fatima built a lightweight booking site so customers could see open slots and book directly.</p>
+
+        <h3>What she built</h3>
+        <p>A responsive booking calendar, SMS confirmation via a local provider, and a simple admin view for the shop owner to manage slots — built and deployed over four weeks of the bootcamp.</p>
+
+        <div class="pull-quote">
+          "I didn't expect my final project to actually get used by a real shop the week after I presented it."
+          <div class="pull-quote-attr">— Fatima Njoya</div>
+        </div>
+
+        <h3>Outcome</h3>
+        <p>The shop owner adopted it the week after the cohort's final presentations — now cited as one of the bootcamp's example outcomes for prospective applicants.</p>
+      </div>
+
+      <div class="case-sidebar">
+        <div class="sidebar-row"><span class="sidebar-label">Program</span><span class="sidebar-value">Web Dev Bootcamp</span></div>
+        <div class="sidebar-row"><span class="sidebar-label">Duration</span><span class="sidebar-value">12 weeks</span></div>
+        <div class="sidebar-row"><span class="sidebar-label">Role</span><span class="sidebar-value">Intern</span></div>
+        <div class="sidebar-row"><span class="sidebar-label">Cohort</span><span class="sidebar-value">4, 2026</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function showScreen(id, el){
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + id).classList.add('active');
+    document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+    if(el && el.classList.contains('nav-link')) el.classList.add('active');
+    window.scrollTo(0,0);
+  }
+</script>
+</body>
+</html>

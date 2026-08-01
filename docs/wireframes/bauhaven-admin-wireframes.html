@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bauhaven Admin — Wireframes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F8F8F8;
+    --surface:#FFFFFF;
+    --border:#E2E2E6;
+    --text:#1E1E1E;
+    --text-secondary:#6B6B70;
+    --text-tertiary:#9A9AA0;
+    --accent:#26AAD1;
+    --accent-tint:#E7EDF8;
+    --accent-2:#54BE8D;
+    --success:#1B7A43;
+    --success-tint:#E7F5EC;
+    --warning:#8A5A00;
+    --warning-tint:#FCF1DA;
+    --danger:#D72638;
+    --danger-tint:#FBE9E8;
+    --radius:8px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:'Archivo',sans-serif; background:var(--bg); color:var(--text);
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{font-family:'Montserrat',sans-serif;}
+  .app{display:flex; min-height:100vh;}
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    width:232px; flex-shrink:0; background:var(--surface); border-right:1px solid var(--border);
+    padding:24px 12px; display:flex; flex-direction:column; gap:4px;
+  }
+  .brand{
+    display:flex; align-items:center; gap:10px; padding:0 12px 24px 12px;
+  }
+  .brand-mark{display:none;} /* placeholder removed — awaiting real logo asset */
+  .brand-name{font-family:'Montserrat',sans-serif; font-weight:700; font-size:16px; letter-spacing:-0.01em;}
+  .nav-section-label{
+    font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em;
+    color:var(--text-tertiary); padding:16px 12px 6px 12px;
+  }
+  .nav-item{
+    display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:var(--radius);
+    font-size:14px; font-weight:500; color:var(--text-secondary); cursor:pointer; border:none;
+    background:none; width:100%; text-align:left;
+  }
+  .nav-item:hover{background:var(--bg);}
+  .nav-item.active{background:var(--accent-tint); color:var(--accent);}
+  .nav-icon{width:18px;height:18px;flex-shrink:0;border-radius:4px;background:currentColor;opacity:0.35;}
+  .nav-item.active .nav-icon{opacity:1;}
+  .nav-badge{
+    margin-left:auto; background:var(--danger); color:#fff; font-size:11px; font-weight:600;
+    padding:1px 6px; border-radius:10px;
+  }
+
+  /* ---------- Topbar ---------- */
+  .main{flex:1; display:flex; flex-direction:column; min-width:0;}
+  .topbar{
+    height:64px; border-bottom:1px solid var(--border); background:var(--surface);
+    display:flex; align-items:center; justify-content:space-between; padding:0 24px; flex-shrink:0;
+  }
+  .search{
+    display:flex; align-items:center; gap:8px; background:var(--bg); border:1px solid var(--border);
+    border-radius:var(--radius); padding:8px 12px; width:320px; color:var(--text-tertiary); font-size:14px;
+  }
+  .topbar-right{display:flex; align-items:center; gap:16px;}
+  .icon-btn{
+    width:36px; height:36px; border-radius:var(--radius); border:1px solid var(--border); background:var(--surface);
+    display:flex; align-items:center; justify-content:center; position:relative; color:var(--text-secondary); font-size:13px;
+  }
+  .lang-toggle{
+    display:flex; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; font-size:12px; font-weight:600;
+  }
+  .lang-toggle span{padding:6px 10px; color:var(--text-tertiary);}
+  .lang-toggle span.active{background:var(--accent); color:#fff;}
+  .profile{display:flex; align-items:center; gap:8px; padding:4px 10px 4px 4px; border:1px solid var(--border); border-radius:var(--radius); cursor:pointer;}
+  .avatar{width:28px;height:28px;border-radius:50%;background:var(--accent-tint); color:var(--accent); font-size:12px; font-weight:700; display:flex;align-items:center;justify-content:center;}
+  .profile-name{font-size:13px; font-weight:600;}
+  .profile-role{font-size:11px; color:var(--text-tertiary);}
+
+  /* ---------- Content ---------- */
+  .content{padding:28px 32px; overflow-y:auto;}
+  .page-head{display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:24px;}
+  .page-title{font-size:24px; font-weight:700; margin:0 0 4px 0;}
+  .page-sub{font-size:14px; color:var(--text-secondary); margin:0;}
+  .btn{
+    border:none; border-radius:var(--radius); padding:10px 16px; font-size:14px; font-weight:600;
+    cursor:pointer; display:inline-flex; align-items:center; gap:6px;
+  }
+  .btn-primary{background:linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%); color:#fff;}
+  .btn-secondary{background:var(--surface); border:1px solid var(--border); color:var(--text);}
+  .btn-ghost{background:none; color:var(--text-secondary); padding:8px 10px;}
+  .btn-sm{padding:6px 12px; font-size:13px;}
+
+  /* Screen switching */
+  .screen{display:none;}
+  .screen.active{display:block;}
+
+  /* ---------- Dashboard ---------- */
+  .stat-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:28px;}
+  .stat-card{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px;}
+  .stat-card.urgent{border-color:var(--warning); background:var(--warning-tint);}
+  .stat-label{font-size:13px; color:var(--text-secondary); font-weight:500; margin-bottom:8px;}
+  .stat-value{font-size:28px; font-weight:700; font-family:'Montserrat',sans-serif;}
+  .stat-foot{font-size:12px; color:var(--text-tertiary); margin-top:4px;}
+  .stat-card.urgent .stat-foot{color:var(--warning);}
+
+  .panel{background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden;}
+  .panel-head{padding:16px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;}
+  .panel-head h3{margin:0; font-size:15px; font-weight:600; font-family:'Archivo',sans-serif;}
+  .activity-row{display:flex; gap:12px; padding:14px 20px; border-bottom:1px solid var(--border); font-size:13px;}
+  .activity-row:last-child{border-bottom:none;}
+  .activity-dot{width:8px;height:8px;border-radius:50%; background:var(--accent); margin-top:5px; flex-shrink:0;}
+  .activity-text strong{font-weight:600;}
+  .activity-time{color:var(--text-tertiary); margin-left:auto; white-space:nowrap; font-size:12px;}
+
+  /* ---------- Tables ---------- */
+  .toolbar{display:flex; gap:10px; margin-bottom:16px;}
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th{
+    text-align:left; font-weight:600; color:var(--text-secondary); font-size:12px; text-transform:uppercase;
+    letter-spacing:0.03em; padding:12px 20px; border-bottom:1px solid var(--border); background:var(--bg);
+  }
+  td{padding:14px 20px; border-bottom:1px solid var(--border); vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  .cell-primary{font-weight:600;}
+  .cell-secondary{color:var(--text-secondary); font-size:12px;}
+  .badge{
+    display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px;
+    font-size:12px; font-weight:600;
+  }
+  .badge::before{content:""; width:6px; height:6px; border-radius:50%; background:currentColor;}
+  .badge.success{background:var(--success-tint); color:var(--success);}
+  .badge.warning{background:var(--warning-tint); color:var(--warning);}
+  .badge.danger{background:var(--danger-tint); color:var(--danger);}
+  .badge.neutral{background:var(--bg); color:var(--text-secondary);}
+  .row-actions{display:flex; gap:6px; justify-content:flex-end;}
+  .filter-tabs{display:flex; gap:4px; margin-bottom:16px; border-bottom:1px solid var(--border);}
+  .filter-tab{padding:10px 14px; font-size:13px; font-weight:600; color:var(--text-secondary); cursor:pointer; border-bottom:2px solid transparent;}
+  .filter-tab.active{color:var(--accent); border-bottom-color:var(--accent);}
+
+  .chain{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-secondary);}
+  .chain b{color:var(--text); font-weight:600;}
+  .chain-arrow{color:var(--text-tertiary);}
+
+  .note{
+    font-size:12px; color:var(--text-tertiary); background:var(--bg); border:1px dashed var(--border);
+    border-radius:var(--radius); padding:10px 14px; margin-top:16px;
+  }
+
+  /* ---------- Roster / attendance ---------- */
+  .roster-row{display:flex; align-items:center; gap:12px; padding:12px 20px; border-bottom:1px solid var(--border);}
+  .roster-row:last-child{border-bottom:none;}
+  .roster-avatar{width:32px;height:32px;border-radius:50%;background:var(--bg); flex-shrink:0;}
+  .roster-name{font-weight:600; font-size:13px; flex:1;}
+  .status-toggle{display:flex; gap:4px;}
+  .status-pill{
+    padding:5px 12px; border-radius:20px; font-size:12px; font-weight:600; border:1px solid var(--border);
+    background:var(--surface); color:var(--text-secondary); cursor:pointer;
+  }
+  .status-pill.present.selected{background:var(--success-tint); color:var(--success); border-color:var(--success);}
+  .status-pill.absent.selected{background:var(--danger-tint); color:var(--danger); border-color:var(--danger);}
+  .status-pill.excused.selected{background:var(--warning-tint); color:var(--warning); border-color:var(--warning);}
+
+  /* ---------- Content editor ---------- */
+  .editor-layout{display:grid; grid-template-columns:1fr 280px; gap:20px;}
+  .lang-tabs{display:flex; gap:2px; background:var(--bg); border-radius:var(--radius); padding:3px; width:fit-content; margin-bottom:16px;}
+  .lang-tab{padding:6px 16px; font-size:13px; font-weight:600; color:var(--text-secondary); border-radius:6px; cursor:pointer;}
+  .lang-tab.active{background:var(--surface); color:var(--text); box-shadow:0 1px 2px rgba(0,0,0,0.06);}
+  .field-group{margin-bottom:16px;}
+  .field-label{font-size:13px; font-weight:600; margin-bottom:6px; display:block;}
+  .field-input{
+    width:100%; border:1px solid var(--border); border-radius:var(--radius); padding:10px 12px; font-size:14px;
+    font-family:inherit; color:var(--text); background:var(--surface);
+  }
+  textarea.field-input{min-height:120px; resize:vertical;}
+  .sidebar-panel{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px;}
+  .sidebar-panel h4{margin:0 0 12px 0; font-size:13px; font-weight:600;}
+  .toggle-row{display:flex; align-items:center; justify-content:space-between; padding:8px 0; font-size:13px;}
+  .toggle{width:36px; height:20px; border-radius:10px; background:var(--border); position:relative; cursor:pointer;}
+  .toggle.on{background:var(--accent);}
+  .toggle::after{content:""; width:16px; height:16px; background:#fff; border-radius:50%; position:absolute; top:2px; left:2px; transition:left 0.15s;}
+  .toggle.on::after{left:18px;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="brand">
+      <div class="brand-mark"><div class="m1"></div><div class="m2"></div><div class="m3"></div></div>
+      <div class="brand-name">Bauhaven Admin</div>
+    </div>
+
+    <button class="nav-item active" onclick="showScreen('dashboard', this)">
+      <span class="nav-icon"></span> Dashboard
+    </button>
+
+    <div class="nav-section-label">Programs</div>
+    <button class="nav-item" onclick="showScreen('programs', this)"><span class="nav-icon"></span> Courses &amp; Programs</button>
+    <button class="nav-item" onclick="showScreen('applications', this)">
+      <span class="nav-icon"></span> Applications <span class="nav-badge">7</span>
+    </button>
+    <button class="nav-item" onclick="showScreen('enrollment', this)"><span class="nav-icon"></span> Enrollment</button>
+
+    <div class="nav-section-label">Work</div>
+    <button class="nav-item" onclick="showScreen('tasks', this)"><span class="nav-icon"></span> Tasks &amp; Projects</button>
+    <button class="nav-item" onclick="showScreen('attendance', this)"><span class="nav-icon"></span> Attendance</button>
+
+    <div class="nav-section-label">Operations</div>
+    <button class="nav-item" onclick="showScreen('finance', this)"><span class="nav-icon"></span> Finance</button>
+    <button class="nav-item" onclick="showScreen('assets', this)"><span class="nav-icon"></span> Assets</button>
+    <button class="nav-item">
+      <span class="nav-icon"></span> Issue Reports <span class="nav-badge">5</span>
+    </button>
+
+    <div class="nav-section-label">Website</div>
+    <button class="nav-item" onclick="showScreen('content', this)"><span class="nav-icon"></span> Content Editor</button>
+    <button class="nav-item" onclick="showScreen('blog', this)"><span class="nav-icon"></span> Blog</button>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="search">🔍 &nbsp;Search students, programs, transactions…</div>
+      <div class="topbar-right">
+        <div class="lang-toggle"><span class="active">EN</span><span>FR</span></div>
+        <div class="icon-btn">🔔<span class="nav-badge" style="position:absolute; top:-4px; right:-4px;">3</span></div>
+        <div class="profile">
+          <div class="avatar">AA</div>
+          <div>
+            <div class="profile-name">Ana Admin</div>
+            <div class="profile-role">Admin ▾</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ================= DASHBOARD ================= -->
+      <div class="screen active" id="screen-dashboard">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">Good morning, Ana</h1>
+            <p class="page-sub">Here's what needs your attention today — Tuesday, 4 August</p>
+          </div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-card urgent">
+            <div class="stat-label">Applications awaiting review</div>
+            <div class="stat-value">7</div>
+            <div class="stat-foot">3 confirmed, waiting on approval</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Attendance today</div>
+            <div class="stat-value">42 / 50</div>
+            <div class="stat-foot">Web Dev Bootcamp session</div>
+          </div>
+          <div class="stat-card urgent">
+            <div class="stat-label">Finance pending approval</div>
+            <div class="stat-value">3</div>
+            <div class="stat-foot">Oldest: 2 days</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Open issue reports</div>
+            <div class="stat-value">5</div>
+            <div class="stat-foot">1 flagged high priority</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Recent activity</h3>
+            <button class="btn btn-ghost btn-sm">View all</button>
+          </div>
+          <div class="activity-row">
+            <div class="activity-dot"></div>
+            <div class="activity-text"><strong>Sue Staff</strong> recorded a fee payment from <strong>Sam Student</strong> — pending your approval</div>
+            <div class="activity-time">14 min ago</div>
+          </div>
+          <div class="activity-row">
+            <div class="activity-dot"></div>
+            <div class="activity-text"><strong>Otis Other</strong> submitted an application for <strong>UI/UX Internship</strong></div>
+            <div class="activity-time">1 hr ago</div>
+          </div>
+          <div class="activity-row">
+            <div class="activity-dot"></div>
+            <div class="activity-text"><strong>Mentor Marc</strong> resolved issue report <strong>#128 — projector not working</strong></div>
+            <div class="activity-time">3 hrs ago</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PROGRAMS ================= -->
+      <div class="screen" id="screen-programs">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">Courses &amp; Programs</h1>
+            <p class="page-sub">14 active · 3 archived</p>
+          </div>
+          <button class="btn btn-primary">+ New program</button>
+        </div>
+
+        <div class="toolbar">
+          <button class="btn btn-secondary btn-sm">Filter</button>
+          <button class="btn btn-secondary btn-sm">Type: All</button>
+        </div>
+
+        <div class="panel">
+          <table>
+            <thead>
+              <tr><th>Name</th><th>Type</th><th>Duration</th><th>Fee</th><th>Enrolled</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="cell-primary">Web Development Bootcamp</td>
+                <td>Program</td>
+                <td>12 weeks</td>
+                <td>150,000 XAF</td>
+                <td>28</td>
+                <td><span class="badge success">Active</span></td>
+                <td><button class="btn btn-ghost btn-sm">Edit</button></td>
+              </tr>
+              <tr>
+                <td class="cell-primary">UI/UX Design Internship</td>
+                <td>Program</td>
+                <td>6 months</td>
+                <td>—</td>
+                <td>9</td>
+                <td><span class="badge success">Active</span></td>
+                <td><button class="btn btn-ghost btn-sm">Edit</button></td>
+              </tr>
+              <tr>
+                <td class="cell-primary">Intro to Data Analysis</td>
+                <td>Course</td>
+                <td>4 weeks</td>
+                <td>45,000 XAF</td>
+                <td>15</td>
+                <td><span class="badge success">Active</span></td>
+                <td><button class="btn btn-ghost btn-sm">Edit</button></td>
+              </tr>
+              <tr>
+                <td class="cell-primary">Summer Holiday Coding Camp 2025</td>
+                <td>Program</td>
+                <td>3 weeks</td>
+                <td>60,000 XAF</td>
+                <td>22</td>
+                <td><span class="badge neutral">Archived</span></td>
+                <td><button class="btn btn-ghost btn-sm">Edit</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ================= APPLICATIONS ================= -->
+      <div class="screen" id="screen-applications">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">Applications</h1>
+            <p class="page-sub">Review, confirm, and approve incoming applications</p>
+          </div>
+        </div>
+
+        <div class="filter-tabs">
+          <div class="filter-tab active">All (24)</div>
+          <div class="filter-tab">Submitted (7)</div>
+          <div class="filter-tab">Confirmed (3)</div>
+          <div class="filter-tab">Approved (12)</div>
+          <div class="filter-tab">Declined (2)</div>
+        </div>
+
+        <div class="panel">
+          <table>
+            <thead>
+              <tr><th>Applicant</th><th>Program</th><th>Submitted</th><th>Status</th><th style="text-align:right;">Actions</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="cell-primary">Otis Other<div class="cell-secondary">otis@example.com</div></td>
+                <td>UI/UX Design Internship</td>
+                <td>Today, 09:12</td>
+                <td><span class="badge neutral">Submitted</span></td>
+                <td>
+                  <div class="row-actions">
+                    <button class="btn btn-secondary btn-sm">Confirm</button>
+                    <button class="btn btn-ghost btn-sm">Decline</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td class="cell-primary">Fatima Njoya<div class="cell-secondary">fatima@example.com</div></td>
+                <td>Web Development Bootcamp</td>
+                <td>Yesterday, 16:40</td>
+                <td><span class="badge warning">Confirmed</span></td>
+                <td>
+                  <div class="row-actions">
+                    <button class="btn btn-primary btn-sm">Approve</button>
+                    <button class="btn btn-ghost btn-sm">Decline</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td class="cell-primary">Brice Talla<div class="cell-secondary">brice@example.com</div></td>
+                <td>Intro to Data Analysis</td>
+                <td>2 days ago</td>
+                <td><span class="badge success">Approved</span></td>
+                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">View</button></div></td>
+              </tr>
+              <tr>
+                <td class="cell-primary">Grace Fon<div class="cell-secondary">grace@example.com</div></td>
+                <td>Summer Holiday Coding Camp</td>
+                <td>4 days ago</td>
+                <td><span class="badge danger">Declined</span></td>
+                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">View</button></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ================= FINANCE ================= -->
+      <div class="screen" id="screen-finance">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">Finance</h1>
+            <p class="page-sub">All transactions require Admin approval before they're final</p>
+          </div>
+          <button class="btn btn-primary">+ Record transaction</button>
+        </div>
+
+        <div class="filter-tabs">
+          <div class="filter-tab active">All</div>
+          <div class="filter-tab">Pending approval (3)</div>
+          <div class="filter-tab">Income</div>
+          <div class="filter-tab">Expense</div>
+        </div>
+
+        <div class="panel">
+          <table>
+            <thead>
+              <tr><th>Description</th><th>Type</th><th>Amount</th><th>Chain</th><th>Status</th><th style="text-align:right;">Actions</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="cell-primary">Internship program fee</td>
+                <td><span class="badge success">Income</span></td>
+                <td class="cell-primary">50,000 XAF</td>
+                <td>
+                  <div class="chain">
+                    <b>Sam Student</b> paid <span class="chain-arrow">→</span> <b>Sue Staff</b> recorded <span class="chain-arrow">→</span> awaiting approval
+                  </div>
+                </td>
+                <td><span class="badge warning">Pending</span></td>
+                <td><div class="row-actions"><button class="btn btn-primary btn-sm">Approve</button></div></td>
+              </tr>
+              <tr>
+                <td class="cell-primary">Classroom projector — repair</td>
+                <td><span class="badge danger">Expense</span></td>
+                <td class="cell-primary">18,500 XAF</td>
+                <td>
+                  <div class="chain">
+                    <b>Sue Staff</b> recorded <span class="chain-arrow">→</span> awaiting approval
+                  </div>
+                </td>
+                <td><span class="badge warning">Pending</span></td>
+                <td><div class="row-actions"><button class="btn btn-primary btn-sm">Approve</button></div></td>
+              </tr>
+              <tr>
+                <td class="cell-primary">Bootcamp fee — batch payment</td>
+                <td><span class="badge success">Income</span></td>
+                <td class="cell-primary">450,000 XAF</td>
+                <td>
+                  <div class="chain">
+                    <b>12 students</b> paid <span class="chain-arrow">→</span> <b>Sue Staff</b> recorded <span class="chain-arrow">→</span> <b>Ana Admin</b> approved
+                  </div>
+                </td>
+                <td><span class="badge success">Approved</span></td>
+                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">View</button></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note">Wireframe note: the "Chain" column visualizes payer → recorder → approver directly, since that three-person flow was a specific requirement — worth confirming this reads clearly before we commit to it visually.</div>
+      </div>
+
+      <!-- ================= ENROLLMENT ================= -->
+      <div class="screen" id="screen-enrollment">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">Enrollment</h1>
+            <p class="page-sub">Manage which students are enrolled in which programs</p>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <button class="btn btn-secondary btn-sm">Program: All</button>
+          <button class="btn btn-secondary btn-sm">Status: All</button>
+        </div>
+
+        <div class="panel">
+          <table>
+            <thead>
+              <tr><th>Student</th><th>Program</th><th>Start date</th><th>Duration</th><th>Status</th><th style="text-align:right;">Actions</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="cell-primary">Sam Student</td>
+                <td>Web Development Bootcamp</td>
+                <td>3 Jun 2026</td>
+                <td>12 weeks <span class="cell-secondary">(standard)</span></td>
+                <td><span class="badge success">Active</span></td>
+                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">Edit</button></div></td>
+              </tr>
+              <tr>
+                <td class="cell-primary">Fatima Njoya</td>
+                <td>UI/UX Design Internship</td>
+                <td>10 Jan 2026</td>
+                <td>8 months <span class="cell-secondary">(override: +2mo)</span></td>
+                <td><span class="badge success">Active</span></td>
+                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">Edit</button></div></td>
+              </tr>
+              <tr>
+                <td class="cell-primary">Grace Fon</td>
+                <td>Summer Holiday Coding Camp</td>
+                <td>1 Jul 2025</td>
+                <td>3 weeks</td>
+                <td><span class="badge neutral">Completed</span></td>
+                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">View</button></div></td>
+              </tr>
+              <tr>
+                <td class="cell-primary">Brice Talla</td>
+                <td>Intro to Data Analysis</td>
+                <td>2 Feb 2026</td>
+                <td>4 weeks</td>
+                <td><span class="badge danger">Withdrawn</span></td>
+                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">View</button></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note">Only Admin can edit enrollment (create/withdraw); Staff have read-only tracking access per the spec — reflected here by "Edit" only appearing on active rows for this Admin-logged-in view.</div>
+      </div>
+
+      <!-- ================= TASKS ================= -->
+      <div class="screen" id="screen-tasks">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">Tasks &amp; Projects</h1>
+            <p class="page-sub">Assigned work across all programs</p>
+          </div>
+          <button class="btn btn-primary">+ New task</button>
+        </div>
+
+        <div class="filter-tabs">
+          <div class="filter-tab active">All</div>
+          <div class="filter-tab">Open</div>
+          <div class="filter-tab">Submitted</div>
+          <div class="filter-tab">Graded</div>
+        </div>
+
+        <div class="panel">
+          <table>
+            <thead>
+              <tr><th>Task</th><th>Program</th><th>Assigned to</th><th>Deadline</th><th>Status</th><th style="text-align:right;">Actions</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="cell-primary">Build a responsive landing page</td>
+                <td>Web Development Bootcamp</td>
+                <td>Sam Student</td>
+                <td>6 Aug, 11:59pm</td>
+                <td><span class="badge neutral">Open</span></td>
+                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">View</button></div></td>
+              </tr>
+              <tr>
+                <td class="cell-primary">Wireframe a checkout flow</td>
+                <td>UI/UX Design Internship</td>
+                <td>Fatima Njoya</td>
+                <td>4 Aug, 5:00pm</td>
+                <td><span class="badge warning">Submitted</span></td>
+                <td><div class="row-actions"><button class="btn btn-secondary btn-sm">Give feedback</button></div></td>
+              </tr>
+              <tr>
+                <td class="cell-primary">Clean &amp; visualize a CSV dataset</td>
+                <td>Intro to Data Analysis</td>
+                <td>Brice Talla</td>
+                <td>29 Jul, 11:59pm</td>
+                <td><span class="badge success">Graded — 88%</span></td>
+                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">View</button></div></td>
+              </tr>
+              <tr>
+                <td class="cell-primary">Personal portfolio site <span class="cell-secondary">(self-created)</span></td>
+                <td>Web Development Bootcamp</td>
+                <td>Sam Student</td>
+                <td>—</td>
+                <td><span class="badge neutral">Open</span></td>
+                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">View</button></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note">The last row is a student-created task, only possible because that student was individually granted permission — flagged here so it's visually distinguishable from staff-assigned work, not because the table needs a separate column for it.</div>
+      </div>
+
+      <!-- ================= ATTENDANCE ================= -->
+      <div class="screen" id="screen-attendance">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">Attendance</h1>
+            <p class="page-sub">Web Development Bootcamp — Tuesday, 4 August session</p>
+          </div>
+          <button class="btn btn-secondary">Change session ▾</button>
+        </div>
+
+        <div class="stat-grid" style="grid-template-columns:repeat(3,1fr); margin-bottom:20px;">
+          <div class="stat-card"><div class="stat-label">Present</div><div class="stat-value" style="color:var(--success);">24</div></div>
+          <div class="stat-card"><div class="stat-label">Absent</div><div class="stat-value" style="color:var(--danger);">2</div></div>
+          <div class="stat-card"><div class="stat-label">Excused</div><div class="stat-value" style="color:var(--warning);">2</div></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h3>Roster</h3><span class="cell-secondary">28 students</span></div>
+          <div class="roster-row">
+            <div class="roster-avatar"></div>
+            <div class="roster-name">Sam Student</div>
+            <div class="status-toggle">
+              <div class="status-pill present selected">Present</div>
+              <div class="status-pill absent">Absent</div>
+              <div class="status-pill excused">Excused</div>
+            </div>
+          </div>
+          <div class="roster-row">
+            <div class="roster-avatar"></div>
+            <div class="roster-name">Otis Other</div>
+            <div class="status-toggle">
+              <div class="status-pill present">Present</div>
+              <div class="status-pill absent">Absent</div>
+              <div class="status-pill excused selected">Excused</div>
+            </div>
+          </div>
+          <div class="roster-row">
+            <div class="roster-avatar"></div>
+            <div class="roster-name">Marc Biya</div>
+            <div class="status-toggle">
+              <div class="status-pill present">Present</div>
+              <div class="status-pill absent selected">Absent</div>
+              <div class="status-pill excused">Excused</div>
+            </div>
+          </div>
+        </div>
+        <div class="note">"Excused" here is expected to auto-fill whenever an absence Request was approved for that student/date — this roster is where Staff would see and, if needed, override that.</div>
+      </div>
+
+      <!-- ================= ASSETS ================= -->
+      <div class="screen" id="screen-assets">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">Assets</h1>
+            <p class="page-sub">Physical and digital resources</p>
+          </div>
+          <button class="btn btn-primary">+ New asset</button>
+        </div>
+
+        <div class="toolbar">
+          <button class="btn btn-secondary btn-sm">Type: All</button>
+          <button class="btn btn-secondary btn-sm">Status: All</button>
+        </div>
+
+        <div class="panel">
+          <table>
+            <thead>
+              <tr><th>Asset</th><th>Type</th><th>Status</th><th>Assigned to</th><th style="text-align:right;">Actions</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="cell-primary">Classroom projector — Rm 2</td>
+                <td>Physical</td>
+                <td><span class="badge danger">Needs repair</span></td>
+                <td>—</td>
+                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">Edit</button></div></td>
+              </tr>
+              <tr>
+                <td class="cell-primary">MacBook Air #14</td>
+                <td>Physical</td>
+                <td><span class="badge success">Fine</span></td>
+                <td>Fatima Njoya</td>
+                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">Edit</button></div></td>
+              </tr>
+              <tr>
+                <td class="cell-primary">Figma seat — Design team</td>
+                <td>Digital</td>
+                <td><span class="badge success">Fine</span></td>
+                <td>Fatima Njoya</td>
+                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">Edit</button></div></td>
+              </tr>
+              <tr>
+                <td class="cell-primary">Router — Lab 1</td>
+                <td>Physical</td>
+                <td><span class="badge neutral">Retired</span></td>
+                <td>—</td>
+                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">View</button></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note">Confirmed: students cannot create Assets — creation stays Admin/Staff only, so this screen shows no student-facing entry point, unlike the Tasks screen above.</div>
+      </div>
+
+      <!-- ================= CONTENT EDITOR ================= -->
+      <div class="screen" id="screen-content">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">Content Editor</h1>
+            <p class="page-sub">Editing: Homepage — Portfolio section</p>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button class="btn btn-secondary">Preview</button>
+            <button class="btn btn-primary">Publish</button>
+          </div>
+        </div>
+
+        <div class="editor-layout">
+          <div>
+            <div class="lang-tabs">
+              <div class="lang-tab active">English</div>
+              <div class="lang-tab">Français</div>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Title</label>
+              <input class="field-input" value="Our Students Build Real Things">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Body</label>
+              <textarea class="field-input">From bootcamp to internship, here's a look at what Bauhaven students have shipped this year.</textarea>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Featured portfolio entries</label>
+              <input class="field-input" value="3 entries selected — Fatima Njoya, Sam Student, Brice Talla">
+            </div>
+          </div>
+          <div class="sidebar-panel">
+            <h4>Publish settings</h4>
+            <div class="toggle-row"><span>Visible on live site</span><div class="toggle on"></div></div>
+            <div class="toggle-row"><span>Show in FR</span><div class="toggle on"></div></div>
+            <div class="toggle-row"><span>Featured on homepage</span><div class="toggle"></div></div>
+            <div class="note" style="margin-top:12px;">Publishing triggers the Next.js revalidation webhook — live within seconds, no rebuild.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= BLOG ================= -->
+      <div class="screen" id="screen-blog">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title">Blog</h1>
+            <p class="page-sub">Posts from Admin, Staff, and students — all require approval before going live</p>
+          </div>
+        </div>
+
+        <div class="filter-tabs">
+          <div class="filter-tab active">All</div>
+          <div class="filter-tab">Pending approval (2)</div>
+          <div class="filter-tab">Approved</div>
+          <div class="filter-tab">Draft</div>
+        </div>
+
+        <div class="panel">
+          <table>
+            <thead>
+              <tr><th>Title</th><th>Author</th><th>Submitted</th><th>Status</th><th style="text-align:right;">Actions</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="cell-primary">My First Month as an Intern</td>
+                <td>Fatima Njoya <span class="cell-secondary">(Student)</span></td>
+                <td>Today</td>
+                <td><span class="badge warning">Pending</span></td>
+                <td>
+                  <div class="row-actions">
+                    <button class="btn btn-primary btn-sm">Approve</button>
+                    <button class="btn btn-ghost btn-sm">Reject</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td class="cell-primary">5 Tips for New Bootcamp Applicants</td>
+                <td>Ana Admin</td>
+                <td>2 days ago</td>
+                <td><span class="badge success">Approved</span></td>
+                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">View</button></div></td>
+              </tr>
+              <tr>
+                <td class="cell-primary">Untitled draft</td>
+                <td>Sam Student <span class="cell-secondary">(Student)</span></td>
+                <td>—</td>
+                <td><span class="badge neutral">Draft</span></td>
+                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">View</button></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  function showScreen(id, btn){
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + id).classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  document.querySelectorAll('.status-toggle').forEach(group => {
+    group.querySelectorAll('.status-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        group.querySelectorAll('.status-pill').forEach(p => p.classList.remove('selected'));
+        pill.classList.add('selected');
+      });
+    });
+  });
+
+  document.querySelectorAll('.lang-tabs').forEach(group => {
+    group.querySelectorAll('.lang-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        group.querySelectorAll('.lang-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+      });
+    });
+  });
+
+  document.querySelectorAll('.toggle').forEach(t => {
+    t.addEventListener('click', () => t.classList.toggle('on'));
+  });
+</script>
+</body>
+</html>

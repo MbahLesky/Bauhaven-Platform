@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bauhaven Academy (Native) — Wireframes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F8F8F8; --surface:#FFFFFF; --border:#E2E2E6;
+    --text:#1E1E1E; --text-secondary:#6B6B70; --text-tertiary:#9A9AA0;
+    --accent:#F26B3B; --accent-tint:#FDEEE0;
+    --accent-2:#FED500;
+    --success:#1B7A43; --success-tint:#E7F5EC;
+    --warning:#8A5A00; --warning-tint:#FCF1DA;
+    --danger:#D72638; --danger-tint:#FBE9E8;
+    --radius:12px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:'Archivo',sans-serif; background:#EDEDF0; color:var(--text);
+    display:flex; justify-content:center; padding:32px 16px; -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3{font-family:'Montserrat',sans-serif;}
+
+  .device{
+    width:390px; background:var(--bg); border-radius:36px; box-shadow:0 20px 60px rgba(0,0,0,0.18);
+    overflow:hidden; position:relative; min-height:780px; display:flex; flex-direction:column;
+    border:8px solid #111;
+  }
+  .notch{width:120px; height:22px; background:#111; border-radius:0 0 14px 14px; position:absolute; top:0; left:50%; transform:translateX(-50%); z-index:5;}
+
+  /* ---------- Native push notification banner ---------- */
+  .push-banner{
+    position:absolute; top:30px; left:10px; right:10px; background:rgba(28,28,32,0.92); backdrop-filter:blur(6px);
+    border-radius:16px; padding:12px 14px; display:flex; gap:10px; align-items:flex-start; z-index:20; color:#fff;
+    box-shadow:0 8px 24px rgba(0,0,0,0.25); cursor:pointer;
+  }
+  .push-icon{width:32px;height:32px;background:var(--accent); border-radius:8px; flex-shrink:0;}
+  .push-title{font-size:12px; font-weight:700;}
+  .push-body{font-size:12px; opacity:0.85; margin-top:2px;}
+  .push-time{font-size:10px; opacity:0.6; margin-left:auto; white-space:nowrap;}
+
+  .topbar{padding:20px 20px 12px 20px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;}
+  .brand{display:flex; align-items:center; gap:8px;}
+  .brand-mark{display:none;} /* placeholder removed — awaiting real logo asset */
+  .brand-name{font-family:'Montserrat',sans-serif; font-weight:700; font-size:14px;}
+  .top-icons{display:flex; gap:8px;}
+  .icon-btn{width:34px; height:34px; border-radius:10px; background:var(--surface); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:14px; position:relative;}
+  .dot-badge{position:absolute; top:-3px; right:-3px; width:9px; height:9px; border-radius:50%; background:var(--danger); border:2px solid var(--bg);}
+
+  .content{flex:1; overflow-y:auto; padding:4px 20px 100px 20px;}
+  .screen{display:none;}
+  .screen.active{display:block;}
+
+  .role-pill{display:inline-flex; align-items:center; gap:6px; background:var(--accent-tint); color:var(--accent); font-size:12px; font-weight:600; padding:6px 12px; border-radius:20px; margin-bottom:16px; cursor:pointer;}
+  .greeting{font-size:20px; font-weight:700; margin:0 0 2px 0;}
+  .greeting-sub{font-size:13px; color:var(--text-secondary); margin:0 0 20px 0;}
+
+  .program-card{background:linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%); border-radius:16px; padding:20px; color:#fff; margin-bottom:20px;}
+  .program-card .label{font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; opacity:0.75;}
+  .program-card .title{font-size:18px; font-weight:700; margin:4px 0 14px 0; font-family:'Montserrat',sans-serif;}
+  .progress-track{height:6px; background:rgba(255,255,255,0.25); border-radius:4px; overflow:hidden; margin-bottom:8px;}
+  .progress-fill{height:100%; background:#fff; border-radius:4px;}
+  .program-card .meta{display:flex; justify-content:space-between; font-size:12px; opacity:0.9;}
+
+  .quick-actions{display:flex; gap:10px; margin-bottom:8px;}
+  .quick-action{flex:1; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 10px; text-align:center; font-size:12px; font-weight:600; color:var(--text-secondary);}
+  .quick-action .qa-icon{width:32px; height:32px; border-radius:8px; background:var(--bg); margin:0 auto 8px auto;}
+
+  .section-title{font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-tertiary); margin:20px 0 10px 0;}
+
+  .task-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-bottom:10px; display:flex; align-items:center; gap:12px;}
+  .task-info{flex:1; min-width:0;}
+  .task-title{font-size:14px; font-weight:600; margin-bottom:3px;}
+  .task-meta{font-size:12px; color:var(--text-secondary);}
+  .badge{display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:600; flex-shrink:0;}
+  .badge::before{content:""; width:5px; height:5px; border-radius:50%; background:currentColor;}
+  .badge.neutral{background:var(--bg); color:var(--text-secondary);}
+  .badge.warning{background:var(--warning-tint); color:var(--warning);}
+  .badge.success{background:var(--success-tint); color:var(--success);}
+  .badge.danger{background:var(--danger-tint); color:var(--danger);}
+  .badge.offline{background:#2A2A2E; color:#fff;}
+
+  .stat-row{display:flex; gap:10px; margin-bottom:8px;}
+  .stat-box{flex:1; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px; text-align:center;}
+  .stat-box .num{font-size:22px; font-weight:700; font-family:'Montserrat',sans-serif;}
+  .stat-box .lbl{font-size:11px; color:var(--text-secondary); margin-top:2px;}
+
+  .btn{border:none; border-radius:var(--radius); padding:12px 16px; font-size:14px; font-weight:600; cursor:pointer; width:100%;}
+  .btn-primary{background:linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%); color:#fff;}
+  .btn-secondary{background:var(--surface); border:1px solid var(--border); color:var(--text);}
+  .btn-lg{padding:16px; font-size:15px;}
+
+  .checkin-card{background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; text-align:center; margin-bottom:20px; transition:background 0.2s, border-color 0.2s;}
+  .checkin-card.offline-state{background:#F2F2F4; border-color:#2A2A2E; border-style:dashed;}
+  .checkin-status{font-size:13px; color:var(--text-secondary); margin-bottom:16px;}
+  .checkin-time{font-size:12px; color:var(--text-tertiary); margin-top:10px;}
+  .sync-row{display:flex; align-items:center; justify-content:center; gap:6px; font-size:12px; color:var(--text-secondary); margin-top:10px;}
+  .sync-dot{width:7px; height:7px; border-radius:50%; background:var(--warning); animation:pulse 1.4s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:0.3;}}
+
+  .history-row{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); font-size:13px;}
+  .history-row:last-child{border-bottom:none;}
+  .history-date{color:var(--text-secondary); flex:1;}
+
+  .profile-head{display:flex; align-items:center; gap:14px; margin:8px 0 20px 0;}
+  .avatar-lg{width:64px;height:64px;border-radius:50%; background:var(--accent-tint); color:var(--accent); font-weight:700; font-size:20px; display:flex; align-items:center; justify-content:center; font-family:'Montserrat',sans-serif;}
+  .profile-name{font-size:17px; font-weight:700;}
+  .profile-sub{font-size:12px; color:var(--text-secondary);}
+
+  .list-item{display:flex; align-items:center; justify-content:space-between; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; margin-bottom:10px; font-size:14px; font-weight:500;}
+  .list-item .chev{color:var(--text-tertiary);}
+  .lang-toggle-sm{display:flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; font-size:12px; font-weight:600;}
+  .lang-toggle-sm span{padding:5px 10px; color:var(--text-tertiary);}
+  .lang-toggle-sm span.active{background:var(--accent); color:#fff;}
+  .toggle{width:36px; height:20px; border-radius:10px; background:var(--border); position:relative; cursor:pointer; flex-shrink:0;}
+  .toggle.on{background:var(--accent);}
+  .toggle::after{content:""; width:16px; height:16px; background:#fff; border-radius:50%; position:absolute; top:2px; left:2px; transition:left 0.15s;}
+  .toggle.on::after{left:18px;}
+
+  .note{font-size:11px; color:var(--text-tertiary); background:var(--surface); border:1px dashed var(--border); border-radius:10px; padding:10px 12px; margin-top:4px; margin-bottom:16px;}
+
+  .bottom-nav{position:absolute; bottom:0; left:0; right:0; background:var(--surface); border-top:1px solid var(--border); display:flex; padding:10px 8px calc(10px + 8px) 8px;}
+  .nav-btn{flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; background:none; border:none; font-size:11px; font-weight:600; color:var(--text-tertiary); padding:6px 0; position:relative;}
+  .nav-btn.active{color:var(--accent);}
+  .nav-btn-icon{width:20px; height:20px; border-radius:6px; background:currentColor; opacity:0.4;}
+  .nav-btn.active .nav-btn-icon{opacity:1;}
+</style>
+</head>
+<body>
+
+<div class="device">
+  <div class="notch"></div>
+  <div class="push-banner" id="pushBanner" onclick="dismissPush()">
+    <div class="push-icon"></div>
+    <div>
+      <div class="push-title">Task due tomorrow</div>
+      <div class="push-body">Build a responsive landing page — 11:59pm</div>
+    </div>
+    <div class="push-time">now</div>
+  </div>
+
+  <div class="topbar">
+    <div class="brand"><div class="brand-mark"><div class="m1"></div><div class="m2"></div><div class="m3"></div></div><div class="brand-name">Bauhaven Academy</div></div>
+    <div class="top-icons">
+      <div class="icon-btn">🔔<div class="dot-badge"></div></div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ================= HOME ================= -->
+    <div class="screen active" id="screen-home">
+      <div class="role-pill" onclick="alert('Would open: switch to Student profile')">Viewing as Intern ▾</div>
+      <h1 class="greeting">Hey Sam 👋</h1>
+      <p class="greeting-sub">Tuesday, 4 August</p>
+
+      <div class="program-card">
+        <div class="label">Web Development Bootcamp</div>
+        <div class="title">Week 6 of 12</div>
+        <div class="progress-track"><div class="progress-fill" style="width:50%;"></div></div>
+        <div class="meta"><span>50% complete</span><span>Ends 26 Sep</span></div>
+      </div>
+
+      <div class="quick-actions">
+        <div class="quick-action" onclick="showScreen('requests')"><div class="qa-icon"></div>Request<br>absence</div>
+        <div class="quick-action" onclick="showScreen('report')"><div class="qa-icon"></div>Report<br>an issue</div>
+        <div class="quick-action" onclick="showScreen('testimony')"><div class="qa-icon"></div>Share<br>feedback</div>
+      </div>
+
+      <div class="section-title">Due soon</div>
+      <div class="task-card">
+        <div class="task-info">
+          <div class="task-title">Build a responsive landing page</div>
+          <div class="task-meta">Due tomorrow, 11:59pm</div>
+        </div>
+        <span class="badge warning">Open</span>
+      </div>
+
+      <div class="section-title">Your performance</div>
+      <div class="stat-row">
+        <div class="stat-box"><div class="num">88%</div><div class="lbl">Avg. grade</div></div>
+        <div class="stat-box"><div class="num">96%</div><div class="lbl">Attendance</div></div>
+        <div class="stat-box"><div class="num">5/6</div><div class="lbl">Tasks done</div></div>
+      </div>
+      <div class="note">Push banner above is the native-only difference from the web dashboard — deadline reminders arrive as real OS notifications here, not just an in-app bell icon.</div>
+    </div>
+
+    <!-- ================= TASKS ================= -->
+    <div class="screen" id="screen-tasks">
+      <h1 class="greeting">My Tasks</h1>
+      <p class="greeting-sub">Web Development Bootcamp</p>
+
+      <div class="section-title">Open</div>
+      <div class="task-card">
+        <div class="task-info">
+          <div class="task-title">Build a responsive landing page</div>
+          <div class="task-meta">Due tomorrow, 11:59pm</div>
+        </div>
+        <span class="badge warning">Open</span>
+      </div>
+      <div class="task-card">
+        <div class="task-info">
+          <div class="task-title">Personal portfolio site</div>
+          <div class="task-meta">Self-created · no deadline</div>
+        </div>
+        <span class="badge neutral">Draft</span>
+      </div>
+
+      <div class="section-title">Submitted &amp; graded</div>
+      <div class="task-card">
+        <div class="task-info">
+          <div class="task-title">Responsive nav bar exercise</div>
+          <div class="task-meta">Feedback: "Clean structure, watch spacing on mobile"</div>
+        </div>
+        <span class="badge success">92%</span>
+      </div>
+      <div class="task-card">
+        <div class="task-info">
+          <div class="task-title">CSS Grid layout challenge</div>
+          <div class="task-meta">Submitted 2 days ago</div>
+        </div>
+        <span class="badge neutral">Grading</span>
+      </div>
+    </div>
+
+    <!-- ================= ATTENDANCE ================= -->
+    <div class="screen" id="screen-attendance">
+      <h1 class="greeting">Attendance</h1>
+      <p class="greeting-sub">Today's session: 9:00am – 1:00pm</p>
+
+      <div class="checkin-card" id="checkinCard">
+        <div class="checkin-status" id="checkinStatus">You haven't checked in yet</div>
+        <button class="btn btn-primary btn-lg" onclick="simulateOfflineCheckin()">Check in now</button>
+        <div class="checkin-time">Tap to preview: checking in with no connection</div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-box"><div class="num">96%</div><div class="lbl">This program</div></div>
+        <div class="stat-box"><div class="num">27</div><div class="lbl">Sessions attended</div></div>
+      </div>
+
+      <div class="section-title">History</div>
+      <div class="history-row"><span class="history-date">Mon, 3 Aug</span><span class="badge success">Present</span></div>
+      <div class="history-row"><span class="history-date">Fri, 31 Jul</span><span class="badge success">Present</span></div>
+      <div class="history-row"><span class="history-date">Thu, 30 Jul</span><span class="badge warning">Excused</span></div>
+      <div class="history-row"><span class="history-date">Wed, 29 Jul</span><span class="badge success">Present</span></div>
+      <div class="history-row"><span class="history-date">Tue, 28 Jul</span><span class="badge danger">Absent</span></div>
+
+      <div class="note">This is where native genuinely differs from web: the check-in writes to a local Drift database first, so it succeeds even with zero signal, then syncs silently once back online — the web version can only best-effort cache this.</div>
+    </div>
+
+    <!-- ================= REQUESTS ================= -->
+    <div class="screen" id="screen-requests">
+      <h1 class="greeting">Request Absence</h1>
+      <p class="greeting-sub">Goes to your Programme Manager for approval</p>
+
+      <div class="list-item" style="flex-direction:column; align-items:stretch; gap:12px;">
+        <div>
+          <div style="font-size:12px; font-weight:600; margin-bottom:6px;">Dates</div>
+          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="6 Aug – 7 Aug 2026">
+        </div>
+        <div>
+          <div style="font-size:12px; font-weight:600; margin-bottom:6px;">Reason</div>
+          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="Family event out of town">
+        </div>
+      </div>
+      <button class="btn btn-primary" style="margin-top:8px;">Submit request</button>
+
+      <div class="section-title">Past requests</div>
+      <div class="task-card">
+        <div class="task-info"><div class="task-title">12 Jul 2026</div><div class="task-meta">Medical appointment</div></div>
+        <span class="badge success">Approved</span>
+      </div>
+    </div>
+
+    <!-- ================= REPORT ISSUE ================= -->
+    <div class="screen" id="screen-report">
+      <h1 class="greeting">Report a Problem</h1>
+      <p class="greeting-sub">Goes to Staff for review</p>
+
+      <div class="list-item" style="flex-direction:column; align-items:stretch; gap:12px;">
+        <div>
+          <div style="font-size:12px; font-weight:600; margin-bottom:6px;">Category</div>
+          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="Equipment / facilities">
+        </div>
+        <div>
+          <div style="font-size:12px; font-weight:600; margin-bottom:6px;">What's wrong?</div>
+          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="Projector in Room 2 won't turn on">
+        </div>
+      </div>
+      <button class="btn btn-primary" style="margin-top:8px;">Submit report</button>
+    </div>
+
+    <!-- ================= TESTIMONY ================= -->
+    <div class="screen" id="screen-testimony">
+      <h1 class="greeting">Share Feedback</h1>
+      <p class="greeting-sub">Your testimony may be featured on the Bauhaven website</p>
+
+      <div class="list-item" style="flex-direction:column; align-items:stretch; gap:12px;">
+        <div>
+          <div style="font-size:12px; font-weight:600; margin-bottom:6px;">Your experience</div>
+          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="This bootcamp completely changed how I think about...">
+        </div>
+      </div>
+      <button class="btn btn-primary" style="margin-top:8px;">Submit</button>
+    </div>
+
+    <!-- ================= PROFILE ================= -->
+    <div class="screen" id="screen-profile">
+      <div class="profile-head">
+        <div class="avatar-lg">SS</div>
+        <div>
+          <div class="profile-name">Sam Student</div>
+          <div class="profile-sub">sam@example.com</div>
+        </div>
+      </div>
+
+      <div class="section-title">Notifications (native only)</div>
+      <div class="list-item"><span>Task deadlines</span><div class="toggle on"></div></div>
+      <div class="list-item"><span>Announcements</span><div class="toggle on"></div></div>
+      <div class="list-item"><span>Request approvals</span><div class="toggle on"></div></div>
+
+      <div class="section-title">General</div>
+      <div class="list-item"><span>Language</span><div class="lang-toggle-sm"><span class="active">EN</span><span>FR</span></div></div>
+      <div class="list-item">Edit profile photo <span class="chev">›</span></div>
+      <div class="list-item">Contact information <span class="chev">›</span></div>
+      <div class="list-item" onclick="showScreen('testimony')">My testimonies <span class="chev">›</span></div>
+      <div class="list-item" onclick="showScreen('requests')">My requests <span class="chev">›</span></div>
+      <div class="list-item" onclick="showScreen('report')">Reported issues <span class="chev">›</span></div>
+
+      <div class="section-title">Roles</div>
+      <div class="list-item">Intern — Web Development Bootcamp <span class="badge success">Active</span></div>
+
+      <button class="btn btn-secondary" style="margin-top:20px;">Log out</button>
+    </div>
+
+  </div>
+
+  <div class="bottom-nav">
+    <button class="nav-btn active" onclick="showScreen('home', this)"><div class="nav-btn-icon"></div>Home</button>
+    <button class="nav-btn" onclick="showScreen('tasks', this)"><div class="nav-btn-icon"></div>Tasks</button>
+    <button class="nav-btn" onclick="showScreen('attendance', this)"><div class="nav-btn-icon"></div>Attendance</button>
+    <button class="nav-btn" onclick="showScreen('profile', this)"><div class="nav-btn-icon"></div>Profile</button>
+  </div>
+</div>
+
+<script>
+  function showScreen(id, btn){
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + id).classList.add('active');
+    document.querySelectorAll('.nav-btn').forEach(n => n.classList.remove('active'));
+    if(btn) btn.classList.add('active');
+  }
+  function dismissPush(){
+    document.getElementById('pushBanner').style.display = 'none';
+    showScreen('tasks', document.querySelectorAll('.nav-btn')[1]);
+  }
+  let offlineToggled = false;
+  function simulateOfflineCheckin(){
+    const card = document.getElementById('checkinCard');
+    const status = document.getElementById('checkinStatus');
+    offlineToggled = !offlineToggled;
+    if(offlineToggled){
+      card.classList.add('offline-state');
+      status.innerHTML = 'Checked in <span class="badge offline">Offline</span>';
+      card.insertAdjacentHTML('beforeend', '<div class="sync-row" id="syncRow"><div class="sync-dot"></div> Waiting to sync…</div>');
+    } else {
+      card.classList.remove('offline-state');
+      status.innerText = "You haven't checked in yet";
+      const syncRow = document.getElementById('syncRow');
+      if(syncRow) syncRow.remove();
+    }
+  }
+</script>
+</body>
+</html>
