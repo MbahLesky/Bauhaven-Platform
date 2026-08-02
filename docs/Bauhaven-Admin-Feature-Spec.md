@@ -103,6 +103,10 @@ Admin is the consolidated internal back-office — what would otherwise have bee
 - Every module (Courses, Applications, Tasks, Attendance, Finance, Assets, Content) is usable by Admin end-to-end without touching the old apps.
 - Staff only ever see data scoped to their assignment — verified via a permission audit with zero cross-scope leaks in testing.
 - An Application can go from public submission to enrolled Student without manual database work.
+  **Not met as of the Enrollment build.** Approving an Application sets its status; it cannot
+  create an Enrollment, because `enrollments.user_id` requires a `users` row and an applicant
+  has no account until they sign up. The missing link is the invitation/signup step — the
+  `invitations` table exists, nothing is built on it. See §8, "Enrollment".
 
 ## 7. Constraints, risks & open questions
 
@@ -120,6 +124,51 @@ Admin is the consolidated internal back-office — what would otherwise have bee
 - **A Student can only create their own Task/Project if an Admin/Staff member has granted that specific permission** — not open to all students by default.
 - Approving an Application is Admin-only (Staff can confirm/decline but not give final approval).
 - Blog posts written by Users still require Admin/Staff approval before going live — a deliberate moderation gate, not an oversight.
+
+### Enrollment — decisions made while building the screen
+
+- **Enrollment creation is a standalone "+ New enrollment" on the Enrollment screen, not
+  an action on an approved Application.** This is forced by the schema, not preference:
+  `enrollments.user_id` is `not null references users(id)`, and `users.id` *is* the
+  Supabase Auth user id — a `users` row only exists once someone has signed up. An
+  `application` holds `applicant_name` / `applicant_email` and **no user reference at
+  all** (`reviewed_by` is the reviewer, not the applicant). So an approved application
+  carries nothing that can populate `enrollments.user_id`.
+
+  **The real chain is: Application approved → applicant invited → applicant signs up
+  (`users` row created by the `on_auth_user_created` trigger) → Admin enrols them.** The
+  middle step is what's missing. The `invitations` table exists for exactly it (email,
+  invited_role, token, expires_at) and nothing is built on it yet.
+
+  A "Create enrollment" button on an approved Application was deliberately **not** added:
+  it would dead-end for any applicant without an account, which is the normal case
+  immediately after approval. Better an honest gap than a button that usually fails.
+
+  **Success criterion 3 — "An Application can go from public submission to enrolled
+  Student without manual database work" — is therefore still not met.** The missing piece
+  is the invitation/signup step, not the Enrollment screen. Whoever picks that up should
+  reconcile this section and the Applications one.
+
+- **The wireframe shows no create control on this screen**; one was added, because
+  nothing else in Admin can produce an enrollment and the spec requires Admin to manage
+  enrollment (feature #11). The wireframe has been updated to match.
+
+- **Editing changes status and detail only** — never which student or which program. The
+  table is unique on `(user_id, program_id)`, so moving either is a different enrollment,
+  not an edit of this one. The edit form pins both as read-only and the Server Action
+  validates against a narrower schema that has no such fields to write.
+
+- **Completed and withdrawn are terminal in v1.** Edit appears only on active rows,
+  matching the wireframe. Reversing a closed enrollment is out of scope.
+
+- **Staff see no write controls at all**, not disabled ones — `enrollments_write` is
+  Admin-only with no staff-write policy to fall back on, so their access here is
+  genuinely read-only tracking. The write routes (`/enrollment/new`, `/enrollment/:id/edit`)
+  refuse a non-Admin directly, since hiding a link is not authorization.
+
+- **The student picker lists every account**, not only those holding a `student` role —
+  which roles may be enrolled isn't settled anywhere, and inventing a filter would
+  quietly hide people an Admin legitimately needs to enrol. Emails disambiguate.
 
 ### Applications — decisions made while building the screen
 

@@ -614,11 +614,19 @@
             <h1 class="page-title">Enrollment</h1>
             <p class="page-sub">Manage which students are enrolled in which programs</p>
           </div>
+          <!-- Admin only — a Staff view renders no create control at all. Nothing else in
+               Admin can produce an enrollment, so this screen has to. -->
+          <button class="btn btn-primary">+ New enrollment</button>
         </div>
 
         <div class="toolbar">
-          <button class="btn btn-secondary btn-sm">Program: All</button>
-          <button class="btn btn-secondary btn-sm">Status: All</button>
+          <select class="filter-select" aria-label="Filter by program">
+            <option>All programs</option><option>Web Development Bootcamp</option><option>UI/UX Design Internship</option>
+          </select>
+          <select class="filter-select" aria-label="Filter by status">
+            <option>All statuses</option><option>Active</option><option>Completed</option><option>Withdrawn</option>
+          </select>
+          <span class="toolbar-count">Showing 4 of 4</span>
         </div>
 
         <div class="panel">
@@ -647,22 +655,37 @@
                 <td class="cell-primary">Grace Fon</td>
                 <td>Summer Holiday Coding Camp</td>
                 <td>1 Jul 2025</td>
-                <td>3 weeks</td>
+                <td>3 weeks <span class="cell-secondary">(standard)</span></td>
                 <td><span class="badge neutral">Completed</span></td>
-                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">View</button></div></td>
+                <td><div class="row-actions cell-secondary">Ended 22 Jul 2025</div></td>
               </tr>
               <tr>
                 <td class="cell-primary">Brice Talla</td>
                 <td>Intro to Data Analysis</td>
                 <td>2 Feb 2026</td>
-                <td>4 weeks</td>
+                <td>4 weeks <span class="cell-secondary">(standard)</span></td>
                 <td><span class="badge danger">Withdrawn</span></td>
-                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">View</button></div></td>
+                <td><div class="row-actions cell-secondary">Ended 18 Feb 2026</div></td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div class="note">Only Admin can edit enrollment (create/withdraw); Staff have read-only tracking access per the spec — reflected here by "Edit" only appearing on active rows for this Admin-logged-in view.</div>
+        <div class="note">
+          Only Admin can edit enrollment (create/withdraw); Staff have read-only tracking access
+          per the spec — reflected here by "Edit" only appearing on active rows for this
+          Admin-logged-in view. A Staff view shows neither Edit nor "+ New enrollment", and the
+          write routes refuse a non-Admin reached directly. Closed rows carry no action button:
+          completed and withdrawn are terminal in v1, and there is no enrollment detail screen,
+          so the earlier "View" control was dropped. Every duration carries its qualifier —
+          "(standard)" or "(override: +2mo)" — rather than only the overridden ones. Below the
+          <code>md</code> breakpoint these rows become stacked cards.
+        </div>
+        <div class="note">
+          <strong>Where a new enrollment comes from:</strong> not from an approved Application.
+          <code>enrollments.user_id</code> requires a <code>users</code> row, and an applicant has
+          no account until they sign up — so the chain is Application approved → invited → signs
+          up → enrolled. The invitation step isn't built yet. See Bauhaven-Admin-Feature-Spec.md §8.
+        </div>
       </div>
 
       <!-- ================= TASKS ================= -->
