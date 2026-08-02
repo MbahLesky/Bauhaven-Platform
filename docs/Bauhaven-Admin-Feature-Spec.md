@@ -62,7 +62,7 @@ Admin is the consolidated internal back-office — what would otherwise have bee
 | # | Feature | User(s) | Priority | Notes |
 |---|---|---|---|---|
 | 1 | Create/manage Program (course or program type) | Admin, Staff | Must | |
-| 2 | Delete Program | Admin only | Must | |
+| 2 | Delete Program | Admin only | Must | RLS policy `programs_delete` exists and stays. **No delete UI in Admin-web v1** — retiring a program is an archive (see §8) |
 | 3 | Assign/block Program access per user | Admin, Staff | Must | Ties to scoped `UserRole` access model |
 | 4 | Set duration/module count per user (manual or auto by package) | Admin, Staff | Should | Auto-by-package needs a defined pricing model first |
 | 5 | Grade student on Program | Admin, Staff | Must | |
@@ -120,3 +120,53 @@ Admin is the consolidated internal back-office — what would otherwise have bee
 - **A Student can only create their own Task/Project if an Admin/Staff member has granted that specific permission** — not open to all students by default.
 - Approving an Application is Admin-only (Staff can confirm/decline but not give final approval).
 - Blog posts written by Users still require Admin/Staff approval before going live — a deliberate moderation gate, not an oversight.
+
+### Courses & Programs — decisions made while building the screen
+
+These came out of implementing the Programs screen in `bauhaven-admin-web`; they resolve
+points the feature list and the wireframe left open or disagreed on.
+
+- **Retiring a program is an archive, never a row delete.** `programs.status` flips to
+  `archived` and the row stays. This is the wireframe's "Archived" badge, and it's forced
+  by the data model: `enrollments`, `applications`, `attendance_sessions`, `tasks`,
+  `projects`, `portfolio_entries`, `testimonies`, `user_roles`, and `issue_reports` all
+  carry a `program_id` FK, so deleting a program would orphan historical records that
+  finance and attendance reporting depend on. Feature #2 (Delete Program, Admin-only)
+  keeps its `programs_delete` RLS policy for a genuine data-entry mistake, but v1 ships no
+  UI for it — the spec listing a delete and the wireframe offering only Edit was the one
+  real conflict between the two documents, resolved in the wireframe's favour.
+
+- **Archiving happens inside the edit form**, via the Status field — not a separate
+  row action. Matches the wireframe, which gives each row only an Edit control.
+
+- **Program fees are XAF-only in v1.** `fee_currency` is stamped `'XAF'` when a program
+  is **created** and is not editable in the UI. The column stays for later, but
+  `fee_amount_minor` holds *whole francs* for XAF (no minor unit) and *cents* for
+  anything else — offering a currency picker without resolving that would put two
+  different units in one column.
+  **Editing a program never rewrites `fee_currency`.** If a row arrives from anywhere
+  else — a seed, an import, the public Site — with a non-XAF currency, an admin edit
+  leaves it alone rather than restamping it XAF and silently reinterpreting the amount
+  (€450.00 stored as 45000 would otherwise resurface as 45,000 XAF).
+
+- **Duration is stored and entered in days** (`duration_days`), and humanised for
+  display only: exact multiples render as "12 weeks" or "6 months" to match the
+  wireframe's Duration column, and anything that doesn't divide evenly stays in days
+  rather than being rounded. Per-enrollment overrides (feature #4) still live on
+  `enrollments.duration_override_days`.
+
+- **Only the English title is required.** `title_fr`, both descriptions, duration,
+  modules, and fee are all optional, so staff can create a program before the French
+  copy exists rather than being blocked on a translation.
+
+- **Create and edit are one form on their own routes** (`/programs/new`,
+  `/programs/:id/edit`), not a modal: same fields and same validation either way, a
+  deep-linkable edit URL, and no nine-field form trapped in a scrolling dialog at the
+  360px floor.
+
+- **The list's Type/Status filters run in the browser** for v1 — the whole catalog is
+  a few dozen rows already fetched by the server component. Server-side filtering
+  waits until the list outgrows a single page.
+
+- **"Enrolled" counts active enrollments only** (`enrollments.status = 'active'`),
+  excluding completed and withdrawn.

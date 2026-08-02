@@ -132,4 +132,4 @@ README.md
 
 ## Naming inside any of the above
 
-Covered in full in `Bauhaven-Coding-Standards.md`; the short version: PascalCase for components/classes, camelCase for variables/functions, kebab-case folders on web / snake_case on Flutter, snake_case for Dart files.
+Covered in full in `Bauhaven-Coding-Standards.md`; the short version: PascalCase for components/classes (except `components/ui/` primitives, which keep the lowercase filenames the shadcn CLI generates), camelCase for variables/functions, kebab-case folders on web / snake_case on Flutter, snake_case for Dart files.

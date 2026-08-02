@@ -122,7 +122,12 @@
   .activity-time{color:var(--text-tertiary); margin-left:auto; white-space:nowrap; font-size:12px;}
 
   /* ---------- Tables ---------- */
-  .toolbar{display:flex; gap:10px; margin-bottom:16px;}
+  .toolbar{display:flex; align-items:center; gap:10px; margin-bottom:16px;}
+  .filter-select{
+    border:1px solid var(--border); background:var(--surface); color:var(--text);
+    border-radius:var(--radius); padding:8px 12px; font-size:13px; font-weight:600; font-family:inherit;
+  }
+  .toolbar-count{margin-left:auto; font-size:13px; color:var(--text-secondary);}
   table{width:100%; border-collapse:collapse; font-size:13px;}
   th{
     text-align:left; font-weight:600; color:var(--text-secondary); font-size:12px; text-transform:uppercase;
@@ -308,12 +313,19 @@
             <h1 class="page-title">Courses &amp; Programs</h1>
             <p class="page-sub">14 active · 3 archived</p>
           </div>
-          <button class="btn btn-primary">+ New program</button>
+          <button class="btn btn-primary" onclick="showScreen('program-form')">+ New program</button>
         </div>
 
+        <!-- Both filters run in the browser in v1 — the catalog is a few dozen rows
+             the page has already loaded. See Bauhaven-Admin-Feature-Spec.md §8. -->
         <div class="toolbar">
-          <button class="btn btn-secondary btn-sm">Filter</button>
-          <button class="btn btn-secondary btn-sm">Type: All</button>
+          <select class="filter-select" aria-label="Filter by type">
+            <option>All types</option><option>Course</option><option>Program</option>
+          </select>
+          <select class="filter-select" aria-label="Filter by status">
+            <option>All statuses</option><option>Active</option><option>Archived</option>
+          </select>
+          <span class="toolbar-count">Showing 4 of 4</span>
         </div>
 
         <div class="panel">
@@ -329,7 +341,7 @@
                 <td>150,000 XAF</td>
                 <td>28</td>
                 <td><span class="badge success">Active</span></td>
-                <td><button class="btn btn-ghost btn-sm">Edit</button></td>
+                <td><button class="btn btn-ghost btn-sm" onclick="showScreen('program-form')">Edit</button></td>
               </tr>
               <tr>
                 <td class="cell-primary">UI/UX Design Internship</td>
@@ -338,7 +350,7 @@
                 <td>—</td>
                 <td>9</td>
                 <td><span class="badge success">Active</span></td>
-                <td><button class="btn btn-ghost btn-sm">Edit</button></td>
+                <td><button class="btn btn-ghost btn-sm" onclick="showScreen('program-form')">Edit</button></td>
               </tr>
               <tr>
                 <td class="cell-primary">Intro to Data Analysis</td>
@@ -347,7 +359,7 @@
                 <td>45,000 XAF</td>
                 <td>15</td>
                 <td><span class="badge success">Active</span></td>
-                <td><button class="btn btn-ghost btn-sm">Edit</button></td>
+                <td><button class="btn btn-ghost btn-sm" onclick="showScreen('program-form')">Edit</button></td>
               </tr>
               <tr>
                 <td class="cell-primary">Summer Holiday Coding Camp 2025</td>
@@ -356,10 +368,100 @@
                 <td>60,000 XAF</td>
                 <td>22</td>
                 <td><span class="badge neutral">Archived</span></td>
-                <td><button class="btn btn-ghost btn-sm">Edit</button></td>
+                <td><button class="btn btn-ghost btn-sm" onclick="showScreen('program-form')">Edit</button></td>
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div class="note">
+          Below the <code>md</code> breakpoint these rows render as stacked cards rather than a
+          seven-column table — at the 360px floor a table this wide would either clip or scroll
+          sideways, and Enrolled and Status are the columns staff scan for.
+        </div>
+      </div>
+
+      <!-- ================= PROGRAM FORM (create + edit) ================= -->
+      <!-- One form for both "+ New program" and each row's Edit: same fields, same
+           validation, own route (/programs/new, /programs/:id/edit). Shown here with an
+           existing program loaded. See Bauhaven-Admin-Feature-Spec.md §8. -->
+      <div class="screen" id="screen-program-form">
+        <div class="page-head">
+          <div>
+            <button class="btn btn-ghost btn-sm" style="padding-left:0;" onclick="showScreen('programs')">← Courses &amp; Programs</button>
+            <h1 class="page-title">Intro to Data Analysis</h1>
+            <p class="page-sub">Set the status to Archived to retire this program without removing its history.</p>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-head"><h3>Basics</h3></div>
+          <div style="padding:20px; display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div class="field-group" style="margin-bottom:0;">
+              <label class="field-label">Type</label>
+              <select class="field-input"><option>Program</option><option selected>Course</option></select>
+            </div>
+            <div class="field-group" style="margin-bottom:0;">
+              <label class="field-label">Status</label>
+              <select class="field-input"><option selected>Active</option><option>Archived</option></select>
+              <div class="cell-secondary" style="margin-top:6px;">Archiving hides a program from new intakes. Existing enrollments, applications, and attendance keep pointing at it.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-head"><h3>Name and description</h3></div>
+          <div style="padding:20px; display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div class="field-group" style="margin-bottom:0;">
+              <label class="field-label">Title (English)</label>
+              <input class="field-input" value="Intro to Data Analysis">
+            </div>
+            <div class="field-group" style="margin-bottom:0;">
+              <label class="field-label">Title (French) <span class="cell-secondary">Optional</span></label>
+              <input class="field-input" value="Introduction à l'analyse de données">
+            </div>
+            <div class="field-group" style="margin-bottom:0;">
+              <label class="field-label">Description (English) <span class="cell-secondary">Optional</span></label>
+              <textarea class="field-input" style="min-height:96px;">Four weeks of spreadsheets and SQL.</textarea>
+            </div>
+            <div class="field-group" style="margin-bottom:0;">
+              <label class="field-label">Description (French) <span class="cell-secondary">Optional</span></label>
+              <textarea class="field-input" style="min-height:96px;">Quatre semaines de tableurs et de SQL.</textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-head"><h3>Length and fee</h3></div>
+          <div style="padding:20px; display:grid; grid-template-columns:repeat(3,1fr); gap:16px;">
+            <div class="field-group" style="margin-bottom:0;">
+              <label class="field-label">Duration (days) <span class="cell-secondary">Optional</span></label>
+              <div class="cell-secondary" style="margin-bottom:6px;">Stored in days. The list shows it as weeks or months where it divides evenly.</div>
+              <input class="field-input" type="number" value="28">
+            </div>
+            <div class="field-group" style="margin-bottom:0;">
+              <label class="field-label">Modules <span class="cell-secondary">Optional</span></label>
+              <div class="cell-secondary" style="margin-bottom:6px;">The default for this program. Individual enrollments can override it.</div>
+              <input class="field-input" type="number" value="8">
+            </div>
+            <div class="field-group" style="margin-bottom:0;">
+              <label class="field-label">Fee (XAF) <span class="cell-secondary">Optional</span></label>
+              <div class="cell-secondary" style="margin-bottom:6px;">Whole francs — XAF has no centimes. Leave blank for a free program.</div>
+              <input class="field-input" type="number" value="45000">
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button class="btn btn-secondary" onclick="showScreen('programs')">Cancel</button>
+          <button class="btn btn-primary">Save changes</button>
+        </div>
+
+        <div class="note">
+          Only the English title is required — staff can create a program before the French copy
+          exists. Fees are XAF-only in v1, so there is no currency picker. There is no Delete
+          control: retiring a program is a Status change, because enrollments, applications,
+          attendance, and tasks all hold a <code>program_id</code> pointing at it.
         </div>
       </div>
 
@@ -820,6 +922,9 @@
   function showScreen(id, btn){
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById('screen-' + id).classList.add('active');
+    // Sub-screens like the program form are reached from inside a screen rather than
+    // from the sidebar, so they leave the current nav highlight where it is.
+    if (!btn) return;
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     btn.classList.add('active');
   }

@@ -10,12 +10,22 @@ Applies across all five codebases. Goal: any file from any of the five repos sho
 | Classes, React/Flutter components | PascalCase | `ApprovalCard`, `StudentDashboard` |
 | Constants | SCREAMING_SNAKE (TS), lowerCamel (Dart) | `MAX_RETRIES`, `defaultPageSize` |
 | Files — React components | PascalCase matching the component | `ApprovalCard.tsx` |
+| Files — `components/ui/` primitives | lowercase, as the shadcn CLI writes them — see below | `button.tsx`, `select.tsx` |
 | Files — Dart | snake_case | `approval_repository.dart` |
 | Files — TS utilities | kebab-case | `date-utils.ts` |
 | Folders | kebab-case (web) / snake_case (Flutter) | `finance-records/`, `finance_records/` |
 | DB tables & columns | plural snake_case tables, snake_case columns (already established in the schema) | `finance_records.recorded_by` |
 | Git branches | `type/short-kebab` | `feature/finance-approval-queue` |
 | Booleans | `is/has/can/should` prefix, positive sense | `isApproved`, not `notPending` |
+
+**The one exception to PascalCase component files:** `components/ui/` keeps the lowercase
+filenames the shadcn CLI generates. `Bauhaven-Tech-Stack.md` commits both web apps to
+shadcn/ui, and `npx shadcn add dialog` writes `ui/dialog.tsx` whatever this table says —
+renaming those by hand means the next `add` either reintroduces the mix or drops a
+duplicate `button.tsx` next to a hand-renamed `Button.tsx`. Both web apps already have
+the same lowercase `ui/` primitives, so this is the consistent state, not drift.
+Everything hand-written stays PascalCase, `components/ui/` included the moment a file in
+there stops being a copy-in primitive.
 
 **The rule above all:** names describe intent, not implementation. If a name needs a comment to explain it, rename it instead. Avoid abbreviations except universal ones (`id`, `url`, `db`).
 
