@@ -82,6 +82,8 @@ Both are audit-sensitive — you need to know what actually happened, including 
 
 **A real bug was caught during testing and fixed:** the helper functions query `user_roles`, which itself has an RLS policy that calls those same functions — infinite recursion. Fixed by making the helpers `SECURITY DEFINER`, so their internal query bypasses RLS rather than re-triggering the policy that called them. Confirmed no recursion after the fix.
 
+**A second bug was caught while building the Admin Applications screen — `003_application_approval_rls.sql`.** `applications_update` was `using (auth_is_admin_or_staff())` with no `WITH CHECK`, so any Staff member could write any status, `'approved'` included — while `Bauhaven-Admin-Feature-Spec.md` §8 has always said final approval is Admin-only. The policy and its own spec disagreed, and the matrix below had no case for it, so nothing caught it. UPDATE policies need **both** clauses to express "who may touch this row" and "what it may become" separately; `USING` alone only answers the first. Approval is now enforced in the database, in the Server Action, and in the UI independently — the UI hiding a button is not authorization, since a Server Action is reachable by direct POST.
+
 Tested against a live Postgres instance with seeded Admin/Staff/Student accounts, covering all four buckets:
 
 | Check | Result |
@@ -100,6 +102,9 @@ Tested against a live Postgres instance with seeded Admin/Staff/Student accounts
 | Anonymous cannot read `finance_records` | ✅ |
 | A Student can create their own Testimony | ✅ |
 | A Student cannot create a Testimony as someone else | ✅ (blocked) |
+| Staff can confirm or decline an Application | ✅ |
+| **Staff cannot approve an Application** | ✅ (blocked, as of `003`) |
+| Admin can approve an Application | ✅ |
 
 `finance_records` has no `UPDATE` policy at all — combined with the append-only convention, this means corrections can only happen as new rows with `corrects_id`, enforced at the database level, not just by convention.
 

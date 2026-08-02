@@ -506,6 +506,8 @@
                 <td>Yesterday, 16:40</td>
                 <td><span class="badge warning">Confirmed</span></td>
                 <td>
+                  <!-- Approve renders for Admin only. A Staff member sees just Decline
+                       here — the button is absent, not disabled. -->
                   <div class="row-actions">
                     <button class="btn btn-primary btn-sm">Approve</button>
                     <button class="btn btn-ghost btn-sm">Decline</button>
@@ -517,17 +519,26 @@
                 <td>Intro to Data Analysis</td>
                 <td>2 days ago</td>
                 <td><span class="badge success">Approved</span></td>
-                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">View</button></div></td>
+                <td><div class="row-actions cell-secondary">Reviewed 30 Jul 2026</div></td>
               </tr>
               <tr>
                 <td class="cell-primary">Grace Fon<div class="cell-secondary">grace@example.com</div></td>
                 <td>Summer Holiday Coding Camp</td>
                 <td>4 days ago</td>
                 <td><span class="badge danger">Declined</span></td>
-                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">View</button></div></td>
+                <td><div class="row-actions cell-secondary">Reviewed 28 Jul 2026</div></td>
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div class="note">
+          Settled applications are view-only and carry no action button — the earlier "View"
+          control was dropped because there is no application detail screen in v1 and the row
+          already shows everything held about the applicant. Below the <code>md</code> breakpoint
+          these rows become stacked cards; five columns plus an action group cannot be read at the
+          360px floor. Approval is Admin-only and enforced in RLS, the Server Action, and the UI
+          independently — see Bauhaven-Admin-Feature-Spec.md §8.
         </div>
       </div>
 

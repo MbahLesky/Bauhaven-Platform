@@ -121,6 +121,39 @@ Admin is the consolidated internal back-office — what would otherwise have bee
 - Approving an Application is Admin-only (Staff can confirm/decline but not give final approval).
 - Blog posts written by Users still require Admin/Staff approval before going live — a deliberate moderation gate, not an oversight.
 
+### Applications — decisions made while building the screen
+
+- **The Admin-only approval rule is now enforced in the database**, not just the UI.
+  `002`'s `applications_update` policy let any Staff member write `status = 'approved'`,
+  contradicting the confirmed decision above; `003_application_approval_rls.sql` adds the
+  `WITH CHECK` that actually reserves approval for Admin. See
+  `Bauhaven-Database-Schema.md`. Approval is checked in three independent places — RLS,
+  the Server Action, and the rendered UI — because the first two are the authorization
+  and the third is only presentation.
+
+- **Staff never see the Approve button**, rather than seeing it disabled. An action a
+  Staff member can never take is noise in a queue they work all day.
+
+- **Status transitions are fixed:** Submitted → Confirmed → Approved, with Decline
+  available from Submitted or Confirmed. Approved and Declined are terminal — reversing
+  a decision is out of scope for v1. The transition is enforced as a filter on the
+  update itself rather than a read-then-write, so two reviewers acting on the same row
+  at once produce one decision and one "already actioned" message, not a silent
+  overwrite.
+
+- **Reviewing does not create an enrollment.** Approving sets `applications.status` and
+  stamps `reviewed_by`/`reviewed_at`; turning an approved application into an
+  `enrollments` row is Enrollment's job (feature #11, Admin-only) and is not wired up
+  yet. Success criterion 3 — "an Application can go from public submission to enrolled
+  Student without manual database work" — is therefore **not yet met**; it needs the
+  Enrollment screen.
+
+- **The public intake form is not part of this screen.** `applications_insert_public`
+  exists for the Site to write into; Admin only ever reads and updates.
+
+- **Submitted times display in `Africa/Douala`**, pinned rather than left to the server's
+  timezone, so "Today, 09:12" means the same thing regardless of deploy region.
+
 ### Courses & Programs — decisions made while building the screen
 
 These came out of implementing the Programs screen in `bauhaven-admin-web`; they resolve
