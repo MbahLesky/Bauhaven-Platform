@@ -756,7 +756,10 @@
             <h1 class="page-title">Attendance</h1>
             <p class="page-sub">Web Development Bootcamp — Tuesday, 4 August session</p>
           </div>
-          <button class="btn btn-secondary">Change session ▾</button>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-secondary">Web Development Bootcamp — 4 Aug ▾</button>
+            <button class="btn btn-primary">+ New session</button>
+          </div>
         </div>
 
         <div class="stat-grid" style="grid-template-columns:repeat(3,1fr); margin-bottom:20px;">
@@ -766,7 +769,7 @@
         </div>
 
         <div class="panel">
-          <div class="panel-head"><h3>Roster</h3><span class="cell-secondary">28 students</span></div>
+          <div class="panel-head"><h3>Roster</h3><span class="cell-secondary">28 students · 1 not yet marked</span></div>
           <div class="roster-row">
             <div class="roster-avatar"></div>
             <div class="roster-name">Sam Student</div>
@@ -794,8 +797,19 @@
               <div class="status-pill excused">Excused</div>
             </div>
           </div>
+          <div class="roster-row">
+            <div class="roster-avatar"></div>
+            <div class="roster-name">Grace Fon</div>
+            <div class="status-toggle">
+              <div class="status-pill present">Present</div>
+              <div class="status-pill absent">Absent</div>
+              <div class="status-pill excused">Excused</div>
+            </div>
+          </div>
         </div>
-        <div class="note">"Excused" here is expected to auto-fill whenever an absence Request was approved for that student/date — this roster is where Staff would see and, if needed, override that.</div>
+        <div class="note">A student with no pill selected (Grace Fon) has not been marked yet — that is not the same as Absent, and it is counted separately from the three stat cards rather than inside them.</div>
+        <div class="note">Every click here is an <b>insert</b>, never an edit: <code>attendance_records</code> has no UPDATE policy, so re-marking someone writes a new row whose <code>corrects_id</code> points at the row it replaces. The pills and the stat cards both show the last row still standing in that chain.</div>
+        <div class="note">"Excused" is expected to auto-fill whenever an absence Request was approved for that student/date, with Staff able to override it here. <b>Not built as of the Attendance build</b> — the Requests approval flow doesn't exist yet, so all three statuses are set manually. See <code>Bauhaven-Admin-Feature-Spec.md</code> §8, "Attendance".</div>
       </div>
 
       <!-- ================= ASSETS ================= -->

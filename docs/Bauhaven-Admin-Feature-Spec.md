@@ -36,7 +36,7 @@ Admin is the consolidated internal back-office — what would otherwise have bee
 - As Admin/Staff, I want to give Feedback on a submission, scoped to students assigned to me.
 
 **Attendance**
-- As Admin/Staff, I want to create attendance sessions and track who attended. *(An approved absence Request from Core auto-marks the session excused.)*
+- As Admin/Staff, I want to create attendance sessions and track who attended. *(An approved absence Request from Core auto-marks the session excused — **not built yet**, see §8, "Attendance".)*
 
 **Finance**
 - As Admin, I want to grant Finance access to a specific Staff member (typically an Auditor) so they can work with transactions — access isn't automatic just from holding that job title.
@@ -78,7 +78,7 @@ Admin is the consolidated internal back-office — what would otherwise have bee
 | 15 | Delete Task/Project | Creator | Must | |
 | 16 | Submission | Admin, Staff, Student | Must | |
 | 17 | Feedback on submission | Admin, Staff (scoped) | Must | |
-| 18 | Attendance sessions: create & track | Admin, Staff | Must | Auto-excuse via approved Request (Core) |
+| 18 | Attendance sessions: create & track | Admin, Staff | Must | Auto-excuse via approved Request (Core) — **not built**, blocked on Requests; manual marking shipped, see §8 |
 | 19 | Grant Finance access to a specific Staff member | Admin only | Must | Access is individually granted, not automatic by sub-role |
 | 20 | Finance Record: create | Admin, Staff (with Finance access) | Must | |
 | 21 | Finance Record: approve/confirm | Admin only | Must | |
@@ -252,3 +252,72 @@ points the feature list and the wireframe left open or disagreed on.
 
 - **"Enrolled" counts active enrollments only** (`enrollments.status = 'active'`),
   excluding completed and withdrawn.
+
+### Attendance — decisions made while building the screen
+
+These came out of implementing the Attendance screen in `bauhaven-admin-web`.
+
+- **This screen is Staff/Admin marking a roster, not self check-in.** Academy has its own
+  check-in flow; both write to the same `attendance_records` table, which is why
+  `attendance_records_insert` has two arms — a student inserting their own row must be
+  actively enrolled in the session's program, while Admin/Staff recording on someone
+  else's behalf skip that check because they aren't checking themselves in.
+
+- **Marking is Admin *and* Staff**, unlike Enrollment. `attendance_records_insert` and
+  `attendance_sessions_write` both gate on `auth_is_admin_or_staff()`, with no
+  admin-only arm — taking a register is the Mentor/Supervisor's job, not the Founders'.
+  Anyone else gets the roster read-only, with statuses as badges and no pills rendered.
+
+- **Every mark is an INSERT. Re-marking is a correction row, never an edit.**
+  `attendance_records` has no UPDATE policy at all, so this is enforced by the database
+  rather than by convention — an `UPDATE` is rejected by RLS, not merely discouraged.
+  Tapping a different pill for a student who is already marked appends a row whose
+  `corrects_id` points at the row it replaces.
+
+- **The row being corrected is resolved server-side at write time**, not sent by the
+  browser. A `corrects_id` the client was holding is already stale if someone else
+  marked the same student in between, and using it would fork the chain into two rows
+  that both look current instead of extending it.
+
+- **Re-clicking the pill a student is already on writes nothing.** The audit trail's
+  whole value is that every row is a real decision; a correction that corrects nothing
+  is noise.
+
+- **Both the roster and the stat cards read through one resolution, in one place.** A
+  plain `select` over a session double-counts every correction — a student marked Present
+  then corrected to Absent lands in *both* stat cards. The rule is "the row nothing else
+  supersedes", derived from `corrects_id`, not "the row with the newest `created_at`":
+  two rows written in one statement share a timestamp exactly. `created_at` only breaks
+  ties between rows that are all still standing, which happens when two staff mark the
+  same student concurrently.
+
+- **The roster has no roster table.** It's every user with an active enrollment in the
+  session's program (`enrollments.status = 'active'`), so enrolling someone adds them and
+  withdrawing them takes them off — nothing to keep in sync.
+
+- **A session is one program on one date, and duplicates are refused.** There's no unique
+  constraint on `(program_id, session_date)`, so the check is in the Server Action: two
+  sessions for the same class on the same day would split its history in half with nothing
+  to say which is the real record. The collision reports the existing session's id and the
+  form offers to open it.
+
+- **`checked_in_at` stays null on a staff-marked row.** It means "when this person checked
+  in", which nobody did; `created_at` already records when the mark was made. The column is
+  for Academy's self check-in.
+
+- **The screen opens on today's session**, resolved in `Africa/Douala` rather than the
+  server's day. With several today it takes the most recently created; with none today it
+  falls back to the most recent past session (and says so) rather than jumping to one that
+  hasn't happened yet. The selection lives in `?session=`, so a particular roster is a
+  link, and switching sessions re-fetches server-side — a different session can mean a
+  different program and therefore a different list of students.
+
+- **Auto-excuse from an approved absence Request (feature #18's dependency) is not built.**
+  The Requests approval flow doesn't exist in Admin — `requests` and `request_approvals` are
+  in `001_initial_schema.sql` and nothing reads or writes them, so there is no approved-absence
+  state to derive anything from. All three statuses are set manually by Staff/Admin. Building
+  half of Requests to fill the gap was rejected as worse than leaving it visibly absent; the
+  gap is marked with `TODO(requests)` in `src/lib/schemas/attendance.ts` and at the roster
+  query in `src/app/(app)/attendance/page.tsx`. When it lands, the auto-excuse belongs in the
+  **read** path as a derived default for students with no record yet — a Staff override is
+  then just an ordinary mark, and the append-only chain already makes the override win.

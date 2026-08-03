@@ -54,6 +54,18 @@ A `finance_records` row separately tracks who **paid** (`payer_id`/`payer_name` 
 
 Both are audit-sensitive — you need to know what actually happened, including mistakes and their corrections, not just the current "truth." A correction is a new row with `corrects_id` pointing at the original, never an `UPDATE`. This also sidesteps sync conflicts if attendance is ever taken offline and synced later.
 
+### Reading an append-only table: resolve to the row nothing supersedes
+
+The cost of append-only is on the read side, and it applies to **every** consumer — Admin-web, Admin-native, and Academy alike. A plain `select` over `attendance_records` for a session returns the corrections *and* the rows they corrected, so a student marked Present and then corrected to Absent is counted twice, once in each total. Same for `finance_records`: a corrected transaction sums twice.
+
+The rule is **"the row no other row supersedes"** — the id that appears in no other row's `corrects_id` — resolved per `(session_id, user_id)` for attendance and per correction chain for finance.
+
+It is deliberately *not* "the row with the newest `created_at`". Two rows written in the same statement carry the same timestamp exactly, so ordering by `created_at` alone picks between an original and its correction arbitrarily. `created_at` is a tie-breaker only between rows that are *all* still standing, which is what a genuine concurrent write produces (two people marking the same student, neither insert having seen the other) — there, last-write-wins is the only answer available, and ordering by id after it keeps the result stable across renders.
+
+Writers have the mirror obligation: resolve the row being superseded **at write time, server-side**, from what is actually in the table. A `corrects_id` a client was holding is already stale if someone else wrote in between, and using it forks the chain into two rows that both look current rather than extending it.
+
+Implemented and tested in `bauhaven-admin-web` as `src/lib/attendance-resolve.ts`, shared by the roster, the stat cards, and the write path so there is no second implementation to drift.
+
 ## Index list (query → index)
 
 | Query this serves | Index |
