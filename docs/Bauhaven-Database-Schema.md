@@ -96,6 +96,8 @@ Implemented and tested in `bauhaven-admin-web` as `src/lib/attendance-resolve.ts
 
 **A second bug was caught while building the Admin Applications screen — `003_application_approval_rls.sql`.** `applications_update` was `using (auth_is_admin_or_staff())` with no `WITH CHECK`, so any Staff member could write any status, `'approved'` included — while `Bauhaven-Admin-Feature-Spec.md` §8 has always said final approval is Admin-only. The policy and its own spec disagreed, and the matrix below had no case for it, so nothing caught it. UPDATE policies need **both** clauses to express "who may touch this row" and "what it may become" separately; `USING` alone only answers the first. Approval is now enforced in the database, in the Server Action, and in the UI independently — the UI hiding a button is not authorization, since a Server Action is reachable by direct POST.
 
+**A third gap was caught while building the Admin Tasks screen — `004_submission_grading_rls.sql`.** `submissions` had `SELECT` and `INSERT` policies and no `UPDATE`, so `submissions.grade` — the only column in the schema that can hold a grade — was unwritable by anyone. Features #5 ("Grade student on Program") and #17 ("Feedback on submission") were both Must-haves that could not be implemented as specified. See "`submissions` had the same gap" below. The pattern across all three: the policies were reviewed by reading them, and each mismatch only surfaced when a screen actually tried to use them.
+
 Tested against a live Postgres instance with seeded Admin/Staff/Student accounts, covering all four buckets:
 
 | Check | Result |
@@ -117,8 +119,28 @@ Tested against a live Postgres instance with seeded Admin/Staff/Student accounts
 | Staff can confirm or decline an Application | ✅ |
 | **Staff cannot approve an Application** | ✅ (blocked, as of `003`) |
 | Admin can approve an Application | ✅ |
+| **Staff can grade a Submission** | ✅ (as of `004` — impossible before it, see below) |
+| A Student cannot grade their own Submission | ✅ (blocked) |
+| Staff can leave Feedback on a Submission | ✅ |
 
 `finance_records` has no `UPDATE` policy at all — combined with the append-only convention, this means corrections can only happen as new rows with `corrects_id`, enforced at the database level, not just by convention.
+
+### `submissions` had the same gap, and it wasn't deliberate
+
+`002` gave `submissions` a `SELECT` and an `INSERT` policy and no `UPDATE` — but unlike `finance_records`, nothing about `submissions` is append-only, and the omission made a Must-have feature unimplementable. The grade lives on `submissions.grade`; it is the only column in the schema that can hold one (`feedback.rating` is a 1-5 integer, and `tasks` has no grade column), so with no `UPDATE` policy nobody could grade anything. Found while building the Tasks screen, fixed in `004_submission_grading_rls.sql` with an admin/staff-only `submissions_update`.
+
+Deliberately not extended to the submission's owner: a student who could update their own row could rewrite their own grade, and `submissions` has no `corrects_id` chain to make that visible the way `attendance_records` does.
+
+This is the third policy-versus-spec mismatch found by building against the schema rather than reading it (after the RLS recursion bug and `003`'s application-approval gap). Building the feature is what keeps finding them.
+
+## Where a grade lives, and where feedback lives
+
+They are two different rows, and conflating them is the easy mistake:
+
+- **`submissions.grade`** — free text, one per submission. "88%", "A-", "Pass". This is the grade the Admin task list shows on its badge.
+- **`feedback.comment`** — `not null` text, and **`feedback.rating`** — a nullable 1-5 integer. A satisfaction-style rating attached to a written comment, *not* the grade. `feedback` has no unique constraint on `submission_id`, so several comments on one submission are the design.
+
+`tasks.status` moving to `'graded'` is the third piece. Nothing in PostgREST commits those three writes together — see `Bauhaven-Admin-Feature-Spec.md` §8, "Tasks", for the ordering that makes a partial failure recoverable, and for the Postgres-function fix that would make it atomic.
 
 ## Review checklist (per the data-modeling standard)
 

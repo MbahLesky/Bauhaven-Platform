@@ -24,7 +24,7 @@ Docs here are the source of truth for `bauhaven-admin-web` and `bauhaven-academy
 1. Install the Supabase CLI: `npm install -g supabase`
 2. `supabase init` (if not already linked), then `supabase start` — spins up local Postgres, Auth, Storage, Studio
 3. Migrations in `supabase/migrations/` apply automatically on `supabase start` / `supabase db reset`
-4. Both migrations are already tested against a live Postgres instance with seeded accounts — see `docs/Bauhaven-Database-Schema.md` for what was tested and the one real bug (an RLS recursion issue) that was caught and fixed along the way
+4. The migrations are already tested against a live Postgres instance with seeded accounts — see `docs/Bauhaven-Database-Schema.md` for what was tested and the three real bugs caught and fixed along the way (an RLS recursion issue in `002`, an application-approval gap in `003`, and an ungradeable `submissions` table in `004`)
 5. Create a **separate Supabase project for production** — never share a database between dev and prod
 6. Each web app needs `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` pointed at this project — see that app's own `.env.example`
 

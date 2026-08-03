@@ -747,6 +747,10 @@
           </table>
         </div>
         <div class="note">The last row is a student-created task, only possible because that student was individually granted permission — flagged here so it's visually distinguishable from staff-assigned work, not because the table needs a separate column for it.</div>
+        <div class="note"><b>One row per student, always.</b> <code>tasks.assigned_to</code> is singular, and so is <code>tasks.status</code> — so "Build a responsive landing page" assigned to a 28-student cohort is 28 rows, not one shared row with 28 assignees. That's what makes Sam's copy Graded while Fatima's is still Open. "+ New task" therefore offers a program and creates one task per actively enrolled student, saying how many before it does. See <code>Bauhaven-Admin-Feature-Spec.md</code> §8, "Tasks".</div>
+        <div class="note"><b>"Graded — 88%" reads the grade from <code>submissions.grade</code></b>, not from <code>tasks</code> — <code>tasks</code> has no grade column. The grade is free text, so "A-" and "Pass" render the same way. The separate <code>feedback.rating</code> (1-5) is not the grade and is not shown here.</div>
+        <div class="note"><b>"View" and "Give feedback" go to the same place</b> — <code>/tasks/:id</code>, where the submission link, the feedback history, and the grading form live. Only the wording and emphasis differ, because only a Submitted row has something waiting to be done.</div>
+        <div class="note"><b>This screen is Tasks only, despite the "&amp; Projects" in its title.</b> <code>projects</code> is a real, separate table — an approvable container (feature #14, Admin-only) that tasks may optionally point at via the nullable <code>tasks.project_id</code>. Nothing in Admin-web creates or approves a Project yet, and no task created here sets <code>project_id</code>. The nav label is kept because Projects belongs on this screen when it's built; the flat list above is deliberate, not an omission.</div>
       </div>
 
       <!-- ================= ATTENDANCE ================= -->

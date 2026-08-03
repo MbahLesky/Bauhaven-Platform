@@ -29,7 +29,7 @@ Admin is the consolidated internal back-office — what would otherwise have bee
 - As Admin, I want to manage Enrollment; Staff can track it but not directly manage it.
 
 **Tasks & Projects**
-- As Admin/Staff, I want to create and manage Projects/Tasks with deadlines and assign them to users.
+- As Admin/Staff, I want to create and manage Projects/Tasks with deadlines and assign them to users. *(Tasks built; **Projects not built** — `projects` is a separate approvable entity, see §8, "Tasks".)*
 - As a Student **with permission granted**, I want to create my own Task/Project to track independent work, not just assigned work.
 - As Admin, I want to approve a Project.
 - As the creator of a Task (Admin/Staff/Student), I want to delete it.
@@ -65,7 +65,7 @@ Admin is the consolidated internal back-office — what would otherwise have bee
 | 2 | Delete Program | Admin only | Must | RLS policy `programs_delete` exists and stays. **No delete UI in Admin-web v1** — retiring a program is an archive (see §8) |
 | 3 | Assign/block Program access per user | Admin, Staff | Must | Ties to scoped `UserRole` access model |
 | 4 | Set duration/module count per user (manual or auto by package) | Admin, Staff | Should | Auto-by-package needs a defined pricing model first |
-| 5 | Grade student on Program | Admin, Staff | Must | |
+| 5 | Grade student on Program | Admin, Staff | Must | Grade lives on `submissions.grade` (free text), written from the Tasks screen. Needed `004` — `submissions` had no UPDATE policy, see §8 |
 | 6 | Add/manage Services (catalog) | Admin, Staff | Should | Light scope for v1 — name/description only |
 | 7 | Submit Application (public entry point) | Public via Site | Must | Writes into Admin |
 | 8 | Confirm Application | Admin, Staff | Must | |
@@ -73,11 +73,11 @@ Admin is the consolidated internal back-office — what would otherwise have bee
 | 10 | Decline Application | Admin, Staff | Must | |
 | 11 | Manage Enrollment | Admin only | Must | |
 | 12 | Track Enrollment (read-only) | Staff | Must | |
-| 13 | Create/manage Task & Project, assign with deadlines | Admin, Staff, Student (if granted) | Must | Student creation is permission-gated per person, not open to all students |
-| 14 | Approve Project | Admin only | Should | |
-| 15 | Delete Task/Project | Creator | Must | |
+| 13 | Create/manage Task & Project, assign with deadlines | Admin, Staff, Student (if granted) | Must | Student creation is permission-gated per person, not open to all students. **Tasks shipped; Projects not built** — see §8, "Tasks" |
+| 14 | Approve Project | Admin only | Should | **Not built.** `projects` exists with an `approved` status; nothing in Admin-web creates or approves one |
+| 15 | Delete Task/Project | Creator | Must | **Not built.** `tasks_delete` RLS (`created_by = auth.uid()`) exists; no delete UI in this pass |
 | 16 | Submission | Admin, Staff, Student | Must | |
-| 17 | Feedback on submission | Admin, Staff (scoped) | Must | |
+| 17 | Feedback on submission | Admin, Staff (scoped) | Must | `feedback.comment` + optional 1-5 `feedback.rating`; written together with the grade, see §8 |
 | 18 | Attendance sessions: create & track | Admin, Staff | Must | Auto-excuse via approved Request (Core) — **not built**, blocked on Requests; manual marking shipped, see §8 |
 | 19 | Grant Finance access to a specific Staff member | Admin only | Must | Access is individually granted, not automatic by sub-role |
 | 20 | Finance Record: create | Admin, Staff (with Finance access) | Must | |
@@ -321,3 +321,91 @@ These came out of implementing the Attendance screen in `bauhaven-admin-web`.
   query in `src/app/(app)/attendance/page.tsx`. When it lands, the auto-excuse belongs in the
   **read** path as a derived default for students with no record yet — a Staff override is
   then just an ordinary mark, and the append-only chain already makes the override win.
+
+### Tasks — decisions made while building the screen
+
+These came out of implementing the Tasks screen in `bauhaven-admin-web`. Two of them
+resolve things neither the feature list nor the wireframe had settled.
+
+- **A task is one row per student, and assigning to a cohort creates N of them.** This is
+  forced by the schema, not chosen for convenience: `tasks.assigned_to` is singular *and*
+  `tasks.status` is per-row, so a single row shared by a 28-student bootcamp could not
+  have Sam graded while Fatima is still open. `submissions.task_id` would likewise
+  collapse a whole cohort's work onto one task with one gradeable submission. The
+  wireframe already assumed this — every row it shows is one task, one named student.
+
+  So "+ New task" takes a program and a mode: **everyone actively enrolled** (the
+  default) or **one student**. The cohort option says how many rows it is about to create
+  before it creates them, because clicking a button once and finding 28 new rows is
+  otherwise a surprise. Both modes source students from `enrollments` with
+  `status = 'active'` — the same source as the Attendance roster — so a task can't be
+  assigned to someone who isn't on the program.
+
+  The cost, accepted: a cohort assignment puts 28 similarly-titled rows in a flat list.
+  The wireframe's list is flat and this change doesn't alter that. Grouping identical
+  titles into one expandable row is a real improvement and a separate one; it is **not**
+  a reason to share a row at the database level, which would break per-student grading.
+
+- **Writes are a single multi-row insert, not a loop.** PostgREST applies one statement,
+  so a cohort assignment either lands whole or not at all. N sequential inserts would
+  leave half a cohort holding the task with nothing to say which half.
+
+- **`projects` is a real table this feature deliberately doesn't touch.** It has its own
+  `title`, `description`, nullable `program_id`, `created_by`, and a
+  `status in ('active','approved','archived')` — it's the approvable container behind
+  feature #14 (Approve Project, Admin-only), not a grouping label on tasks.
+  `tasks.project_id` exists and is nullable; every task Admin-web creates leaves it null.
+  The wireframe's screen shows a flat task list with no project grouping, which matches:
+  **the "& Projects" in the nav label is about where Projects will live, not about what
+  ships now.** The label is kept for that reason. Building Projects means the entity's own
+  create/approve flow, and it is not in this change.
+
+- **The grade lives on `submissions.grade`, and it is free text.** It's the only column in
+  the schema that can hold a grade — `tasks` has none, and `feedback.rating` is a 1-5
+  integer that cannot express the wireframe's "Graded — 88%". So "88%", "A-", and "Pass"
+  are all valid, and the UI doesn't invent a percentage-only rule the column doesn't have.
+  `feedback.rating` is offered separately and optionally, labelled as what it is.
+
+- **Grading was impossible under `002` and needed a migration.** `submissions` had `SELECT`
+  and `INSERT` policies and no `UPDATE`, so nothing could ever write `submissions.grade`
+  — features #5 and #17, both Must, were unimplementable as specified. Fixed in
+  `004_submission_grading_rls.sql` with an admin/staff-only `submissions_update`,
+  deliberately not extended to the submission's owner (a student able to update their own
+  row could rewrite their own grade, and `submissions` has no correction chain to make
+  that visible). Third instance of the policy-versus-spec class of bug, after the RLS
+  recursion issue and `003`.
+
+- **Grading is three writes and PostgREST offers no transaction across them**, so the
+  order is chosen for what a partial failure leaves behind: `submissions.grade` first (a
+  retry rewrites the same value), then the `feedback` row (the table has no unique
+  constraint — several comments on one submission are the design), then
+  `tasks.status → 'graded'` last. Any earlier failure therefore leaves the task **still
+  Submitted** — still in the queue, still showing its "Give feedback" action — rather than
+  hidden as Graded with nothing on it. The transition is guarded with
+  `.eq('status','submitted')` so two staff grading at once means the second is told
+  someone beat them to it, not that it silently re-grades.
+
+  **Known limitation, not solved here:** the three writes can still tear. Making them
+  atomic means a Postgres function called over RPC, which is a migration and a change to
+  how every mutation in this app is shaped — worth doing, and out of scope for the screen
+  that surfaced it.
+
+- **"View" and "Give feedback" are one route,** `/tasks/:id`. The submission link, the
+  feedback history, and the grading form are the same page's content, so a separate
+  grading route would be that page under a second URL. Only a Submitted task gets the
+  wireframe's "Give feedback" wording and a solid button; the rest say "View".
+
+- **`content_url` opens in a new tab with `rel="noopener noreferrer"`.** It's
+  student-supplied and points off-site, and a grader halfway through writing feedback
+  shouldn't lose it by navigating away.
+
+- **Deadlines are entered and read in `Africa/Douala`.** `tasks.deadline` is a
+  `timestamptz` but the form collects it with `datetime-local`, which hands back
+  wall-clock time and no zone. Reading that as Bauhaven's zone happens in one place
+  (`bauhavenLocalToInstant`); a deadline typed as 11:59pm and stored as 11:59pm UTC would
+  be an hour late, and invisible until someone submitted in the gap.
+
+- **`archived` is a real `tasks.status` value with no tab and no UI.** The wireframe's
+  filters are All/Open/Submitted/Graded, and feature #15 is a *delete* by the creator, not
+  an archive. Rows that arrive archived still render with a label; nothing in Admin-web
+  sets that status.
