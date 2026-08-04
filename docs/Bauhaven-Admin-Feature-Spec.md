@@ -41,9 +41,9 @@ Admin is the consolidated internal back-office — what would otherwise have bee
 **Finance**
 - As Admin, I want to grant Finance access to a specific Staff member (typically an Auditor) so they can work with transactions — access isn't automatic just from holding that job title.
 - As Admin/Staff (with Finance access), I want to create a Finance Record (log a transaction).
-- As Admin, I want to approve/confirm a Finance Record before it's final.
+- As Admin, I want to approve/confirm a Finance Record before it's final. *(One Admin, not a quorum — see §8, "Finance".)*
 - As Admin, I want to manage and view all Finance Records.
-- As Admin, I want to see financial analysis (a computed summary, not a stored table) to gauge Bauhaven's monthly health.
+- As Admin, I want to see financial analysis (a computed summary, not a stored table) to gauge Bauhaven's monthly health. *(**Phase 2** — the built screen has two stat cards, not charts.)*
 
 **Assets**
 - As Admin/Staff, I want to create/manage an Asset (physical or digital) and track its status.
@@ -80,10 +80,10 @@ Admin is the consolidated internal back-office — what would otherwise have bee
 | 17 | Feedback on submission | Admin, Staff (scoped) | Must | `feedback.comment` + optional 1-5 `feedback.rating`; written together with the grade, see §8 |
 | 18 | Attendance sessions: create & track | Admin, Staff | Must | Auto-excuse via approved Request (Core) — **not built**, blocked on Requests; manual marking shipped, see §8 |
 | 19 | Grant Finance access to a specific Staff member | Admin only | Must | Access is individually granted, not automatic by sub-role |
-| 20 | Finance Record: create | Admin, Staff (with Finance access) | Must | |
-| 21 | Finance Record: approve/confirm | Admin only | Must | |
-| 22 | Finance Record: manage & view all | Admin only | Must | |
-| 23 | Financial analysis (computed summary) | Admin | Should | Not a stored entity — dashboard/report view |
+| 20 | Finance Record: create | Admin, Staff (with Finance access) | Must | Always inserted `pending`; status is never taken from the caller. Corrections are new rows via `corrects_id` |
+| 21 | Finance Record: approve/confirm | Admin only | Must | **A single Admin, not a quorum** — one `approved_by` column. No reject: a wrong entry is corrected, not refused. Needed `005` — no UPDATE policy existed, see §8 |
+| 22 | Finance Record: manage & view all | Admin only | Must | Also Staff with an individual `finance:view` grant. The nav link is hidden entirely without it, see §8 |
+| 23 | Financial analysis (computed summary) | Admin | Should | **Phase 2.** The Finance screen ships two stat cards (pending count, month-to-date income) and no charts — see `Bauhaven-Development-Plan.md` |
 | 24 | Asset: create/manage, set status | Admin, Staff | Must | |
 | 25 | Asset: assign to user | Admin, Staff | Must | |
 | 26 | Content editor: Page/ContentBlock (EN/FR) | Admin, Staff | Must | Publish triggers Next.js revalidation |
@@ -409,3 +409,114 @@ resolve things neither the feature list nor the wireframe had settled.
   filters are All/Open/Submitted/Graded, and feature #15 is a *delete* by the creator, not
   an archive. Rows that arrive archived still render with a label; nothing in Admin-web
   sets that status.
+
+### Finance — decisions made while building the screen
+
+These came out of implementing the Finance screen in `bauhaven-admin-web`.
+
+- **Access is gated at the navigation level, not just inside the page.** Finance is the
+  only module in Admin-web where the sidebar link is conditional. Everywhere else, Admin
+  and Staff both see the screen and the *actions* are gated (Staff see the Enrollment
+  list but no Edit button). Here, someone with no finance grant never learns the screen
+  exists — because RLS would hand them an empty result set, and an empty ledger shown to
+  someone who simply can't see the rows is a false statement about the books. Three
+  distinct states, three distinct messages:
+  **no access** (a plain explanation and who can grant it — not a 404, since the link is
+  already hidden, so anyone reading it typed the URL), **view-only** (reached the record
+  route with a view grant but no create grant), and **no records yet** (a permitted user
+  looking at a genuinely empty ledger, with the way to add the first one).
+
+- **The permission check calls `auth_has_permission` over RPC rather than reading the
+  tables.** It has to: `permissions` and `user_permission_overrides` are both
+  `for all using (auth_is_admin())`, so a Staff member cannot read their own grant. The
+  app therefore *cannot* compute this from table data as the user in question, and
+  re-implementing the precedence in TypeScript (individual override beats role default
+  beats false) would be a second copy of the rule free to drift from the SQL. Calling the
+  same `security definer` function the policy calls means the nav gate and the database
+  cannot disagree. It reports on `auth.uid()` only and cannot be asked about anyone else.
+  Fails **closed** — an unreachable permission check is not a grant.
+
+- **Viewing and recording are separate grants**, because `finance_select` and
+  `finance_insert` are separate policies. Someone can hold `finance:view` without
+  `finance:create`.
+
+- **Approval is a single Admin, confirmed against the schema.** `finance_records` carries
+  one nullable `approved_by` plus `approved_at`. The multi-approver quorum described for
+  absence Requests lives in a *separate* `request_approvals` table, unique on
+  `(request_id, approver_id)`, precisely because that flow needs several approvers and
+  this one doesn't. Two mechanisms, not one — now stated outright in
+  `Bauhaven-Database-Schema.md`, since `Bauhaven-Development-Plan.md` had described "the
+  finance approval-quorum logic", which doesn't exist. That line is corrected.
+
+- **Approval has no grantable arm.** There is no `auth_has_permission('finance','approve')`
+  anywhere in `002`, so a Staff member with full finance access still cannot approve — and
+  gets no button at all rather than a disabled one. That's the separation of duties the
+  payer → recorder → approver chain exists to enforce, and it's why `status` is never
+  taken from the caller when recording: everything starts `pending`, so nobody can record
+  a transaction pre-approved for themselves.
+
+- **Approval needed a migration, and it isn't a relaxation of append-only.** `002` gave
+  `finance_records` no `UPDATE` policy at all. That's right about the money and wrong
+  about approval: it left `status`, `approved_by` and `approved_at` permanently at their
+  defaults, making feature #21 unimplementable.
+  `005_finance_approval_rls.sql` grants exactly one UPDATE — pending → approved, by an
+  Admin, naming themselves — and *tightens* the money at the same time, via column-level
+  privileges that make `amount_minor`, `description`, `type`, `payer_*`, `recorded_by`,
+  `corrects_id` and `created_at` unwritable by any app session. Append-only for the money
+  is now a Postgres privilege rather than the absence of a policy. Modelling approval as
+  an insert with `corrects_id` was considered and rejected: `corrects_id` means "that row
+  was wrong", and an approval is a decision about a transaction that isn't.
+
+- **No reject, and no edit.** `status` is `check (status in ('pending','approved'))` with
+  no third value. A transaction that shouldn't stand is corrected by a new row. Approved
+  rows carry no action control at all — matching the Enrollment precedent, since there is
+  no finance detail screen for a "View" to lead to.
+
+- **The correction resolver is shared with Attendance, not re-derived.**
+  `src/lib/append-only.ts` is one generic collapse over `(id, corrects_id, created_at)`;
+  Attendance partitions per student before calling it, Finance resolves the whole ledger.
+  Everything downstream — the table, the filter tabs, and both stat cards — reads from
+  that one resolved array, so there is no second path that could count a superseded row.
+  A 50,000 corrected to 45,000 sums to 95,000 from the raw table; that's a test, not just
+  a warning.
+
+- **The superseded row is dropped from the list and the replacement is flagged
+  "(correction)".** Showing both would double the ledger visually even with correct
+  totals; showing neither would make it look like a transaction vanished.
+
+- **Payer is free text *and* an optional account link, not one or the other.**
+  `payer_name` is "always captured, even if `payer_id` is null" per the schema's own
+  comment — it's a snapshot of the name at transaction time, deliberately independent of
+  whether the account or its name changes later. Free text is load-bearing rather than a
+  fallback: the wireframe's own example is a batch payment by **"12 students"**, which is
+  not one account and never will be. Choosing an account prefills the name and leaves it
+  editable; a linked payer with no name is rejected.
+
+- **Amounts are whole francs and are never scaled.** XAF has no minor unit, so
+  `amount_minor` holds francs — the input is `step=1`, the schema rejects fractions
+  rather than rounding someone's money, and nothing multiplies or divides by 100 on the
+  way in or out. Formatting reuses `formatFee`, so the ledger and the program-fee column
+  cannot start disagreeing about what the number means.
+
+- **Month-to-date income is Cameroon's month and includes unapproved rows, and says so.**
+  A payment at 00:30 WAT on the 1st belongs to the new month; read in UTC it would fall
+  out of the total. Money that came in is money that came in — hiding it until an Admin
+  signs off would make the figure lag reality, so the card carries "Includes transactions
+  not yet approved" whenever it does.
+
+- **Only two stat cards, deliberately.** Pending count and month-to-date income. Charts,
+  trends, and expense breakdowns are Phase 2 per `Bauhaven-Development-Plan.md` and are
+  not in this pass.
+
+- **The table breaks to cards at `lg`, not `md` like every other list.** The Chain column
+  is three names and two arrows, so this table needs noticeably more width before it
+  stops being readable. Below that the chain stacks vertically with a ↓ — the only way it
+  fits 360px without truncating a name, and a truncated name in an audit trail defeats
+  the column. The whole chain also carries one screen-reader sentence ("Sam Student paid,
+  Sue Staff recorded, awaiting approval"), because read as separate fragments it loses the
+  sequence that is the entire point.
+
+- **`receipt_ref` is not collected yet.** The column exists on `finance_records` and is a
+  real audit affordance, but it isn't in the wireframe's form or this pass's scope. Worth
+  adding when receipts are actually being filed; noted here so its absence is a decision
+  rather than an oversight.

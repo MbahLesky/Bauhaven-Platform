@@ -46,6 +46,21 @@ Companion to `001_initial_schema.sql`, which has been **tested end-to-end agains
 
 `users` doesn't generate its own id — `id` references `auth.users(id)` directly, so there's exactly one identifier for a person across the whole platform. A trigger (`handle_new_user`) auto-creates the matching `public.users` row the moment someone signs up via Supabase Auth, pulling `name` from signup metadata if provided (falls back to the email prefix if not) — so app code never has to remember to create the profile row manually. Tested locally against a stub `auth.users` table and confirmed both the metadata and no-metadata signup paths populate correctly.
 
+## Two approval mechanisms, not one
+
+This has been confused in writing at least once, so it's worth stating plainly: **finance approval and Request approval are separate mechanisms with separate shapes.**
+
+| | Finance | Absence Requests |
+|---|---|---|
+| Approvers needed | **Exactly one Admin** | A quorum that varies by requester role (User → 1 Staff, Staff → 1 Admin, Admin → every other Admin) |
+| Where it's stored | `finance_records.approved_by` + `approved_at`, on the row | `request_approvals`, one row per required approver, unique on `(request_id, approver_id)` |
+| Statuses | `pending`, `approved` — **no rejected** | `pending`, `approved`, `rejected` |
+| Undoing a bad decision | Record a correction (`corrects_id`); the original stays | `request_approvals.decision` can be `rejected` |
+
+The quorum table exists *because* Requests need several approvers. Finance deliberately doesn't — which is why it has one nullable `approved_by` column and no approvals table. Anything describing "the finance approval quorum" is describing something that doesn't exist.
+
+The absence of a `rejected` finance status is also deliberate and load-bearing: a transaction that shouldn't stand is corrected by a new row, never refused, so the ledger records what happened rather than only what was accepted.
+
 ## Finance payment chain
 
 A `finance_records` row separately tracks who **paid** (`payer_id`/`payer_name` — a Student paying their own fee, or an external payer with no account), who **recorded** it (`recorded_by` — typically Staff), and who **approved** it (`approved_by` — Admin). `payer_name` is always stored even when `payer_id` is set, since a denormalized snapshot of the name at transaction time is worth keeping independent of whether the account or its name ever changes later.
@@ -64,7 +79,9 @@ It is deliberately *not* "the row with the newest `created_at`". Two rows writte
 
 Writers have the mirror obligation: resolve the row being superseded **at write time, server-side**, from what is actually in the table. A `corrects_id` a client was holding is already stale if someone else wrote in between, and using it forks the chain into two rows that both look current rather than extending it.
 
-Implemented and tested in `bauhaven-admin-web` as `src/lib/attendance-resolve.ts`, shared by the roster, the stat cards, and the write path so there is no second implementation to drift.
+Implemented and tested in `bauhaven-admin-web` as `src/lib/append-only.ts` — one generic collapse over `(id, corrects_id, created_at)`, used by Attendance (which partitions per student first, in `attendance-resolve.ts`) and by Finance (which resolves the whole ledger at once). Deliberately one implementation rather than one per feature: this is the rule most likely to be re-derived slightly differently the second time, and a ledger that quietly double-counts is not a bug anyone notices from the UI.
+
+The Finance build added a second demonstration of why: a transaction recorded as 50,000 and corrected to 45,000 sums to **95,000** from the raw table. That's covered by a test asserting the naive total *and* the resolved one, so the failure mode is documented in the suite rather than only in prose.
 
 ## Index list (query → index)
 
@@ -96,6 +113,8 @@ Implemented and tested in `bauhaven-admin-web` as `src/lib/attendance-resolve.ts
 
 **A second bug was caught while building the Admin Applications screen — `003_application_approval_rls.sql`.** `applications_update` was `using (auth_is_admin_or_staff())` with no `WITH CHECK`, so any Staff member could write any status, `'approved'` included — while `Bauhaven-Admin-Feature-Spec.md` §8 has always said final approval is Admin-only. The policy and its own spec disagreed, and the matrix below had no case for it, so nothing caught it. UPDATE policies need **both** clauses to express "who may touch this row" and "what it may become" separately; `USING` alone only answers the first. Approval is now enforced in the database, in the Server Action, and in the UI independently — the UI hiding a button is not authorization, since a Server Action is reachable by direct POST.
 
+**A fourth was caught while building the Admin Finance screen — `005_finance_approval_rls.sql`.** `finance_records` had no `UPDATE` policy, which is correct for the money and wrong for approval: it left `status`, `approved_by` and `approved_at` permanently at their defaults and made feature #21 unimplementable. Fixed narrowly — see "Why append-only for Attendance and Finance" below. Building the Finance screen also turned up a documentation error rather than a schema one: `Bauhaven-Development-Plan.md` referred to "the finance approval-quorum logic", and finance has no quorum. Corrected there, and the distinction is now stated outright under "Two approval mechanisms, not one".
+
 **A third gap was caught while building the Admin Tasks screen — `004_submission_grading_rls.sql`.** `submissions` had `SELECT` and `INSERT` policies and no `UPDATE`, so `submissions.grade` — the only column in the schema that can hold a grade — was unwritable by anyone. Features #5 ("Grade student on Program") and #17 ("Feedback on submission") were both Must-haves that could not be implemented as specified. See "`submissions` had the same gap" below. The pattern across all three: the policies were reviewed by reading them, and each mismatch only surfaced when a screen actually tried to use them.
 
 Tested against a live Postgres instance with seeded Admin/Staff/Student accounts, covering all four buckets:
@@ -122,8 +141,24 @@ Tested against a live Postgres instance with seeded Admin/Staff/Student accounts
 | **Staff can grade a Submission** | ✅ (as of `004` — impossible before it, see below) |
 | A Student cannot grade their own Submission | ✅ (blocked) |
 | Staff can leave Feedback on a Submission | ✅ |
+| Staff **without** an individual finance grant cannot read `finance_records` | ✅ (blocked) |
+| Staff **with** `finance:view` granted can read them | ✅ |
+| Holding the Auditor sub-role alone grants nothing | ✅ (blocked — access is per person) |
+| **Staff cannot approve a finance record, even with finance access** | ✅ (blocked — Admin only) |
+| Admin can approve a pending finance record | ✅ (as of `005` — impossible before it) |
+| **Nobody can edit a finance record's amount, Admin included** | ✅ (blocked by column-level grants in `005`) |
+| An Admin cannot un-approve or re-approve a finance record | ✅ (blocked) |
 
-`finance_records` has no `UPDATE` policy at all — combined with the append-only convention, this means corrections can only happen as new rows with `corrects_id`, enforced at the database level, not just by convention.
+`finance_records` had no `UPDATE` policy at all in `002` — combined with the append-only convention, this meant corrections could only happen as new rows with `corrects_id`, enforced at the database level rather than by convention.
+
+**That was right about the money and wrong about approval, and `005_finance_approval_rls.sql` fixes the second half without touching the first.** With no UPDATE at all, `status`, `approved_by` and `approved_at` could never move off their defaults — so feature #21 ("Finance Record: approve/confirm", Admin only, Must) was unimplementable, and the only reachable states were "pending forever" or "inserted pre-approved by whoever recorded it", which defeats the separation of duties the payer → recorder → approver chain exists to enforce. Nullable `approved_by`/`approved_at` beside a `default 'pending'` status only make sense as a lifecycle, and that lifecycle needs one UPDATE.
+
+`005` grants exactly that one, two ways at once:
+
+- **Column-level privileges.** `revoke update … ; grant update (status, approved_by, approved_at)` means `amount_minor`, `description`, `type`, `payer_id`, `payer_name`, `recorded_by`, `corrects_id` and `created_at` are unwritable by any app session. An edited amount is refused by Postgres before RLS is even consulted — so append-only for the money is now a privilege, not a policy that could be widened later by accident.
+- **A narrow policy.** `finance_approve` is `using (auth_is_admin() and status = 'pending') with check (auth_is_admin() and status = 'approved' and approved_by = auth.uid())`. Admin only; pending rows only; the result must be approved and credited to the caller. It cannot un-approve, cannot re-approve, and cannot name a different Admin.
+
+Net effect: exactly one UPDATE exists against this table — pending → approved, by an Admin, naming themselves. Everything else is still insert-only. Modelling approval as an insert with `corrects_id` was considered and rejected: `corrects_id` means "that row was wrong", and an approval is a decision about a transaction that isn't.
 
 ### `submissions` had the same gap, and it wasn't deliberate
 

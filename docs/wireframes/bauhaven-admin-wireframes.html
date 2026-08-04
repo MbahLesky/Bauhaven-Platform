@@ -552,9 +552,18 @@
           <button class="btn btn-primary">+ Record transaction</button>
         </div>
 
+        <div class="stat-grid" style="grid-template-columns:repeat(2,1fr); margin-bottom:20px;">
+          <div class="stat-card"><div class="stat-label">Pending approval</div><div class="stat-value" style="color:var(--warning);">2</div></div>
+          <div class="stat-card">
+            <div class="stat-label">Income — August</div>
+            <div class="stat-value" style="color:var(--success);">500,000 XAF</div>
+            <div class="cell-secondary" style="margin-top:4px;">Includes transactions not yet approved</div>
+          </div>
+        </div>
+
         <div class="filter-tabs">
           <div class="filter-tab active">All</div>
-          <div class="filter-tab">Pending approval (3)</div>
+          <div class="filter-tab">Pending approval (2)</div>
           <div class="filter-tab">Income</div>
           <div class="filter-tab">Expense</div>
         </div>
@@ -599,12 +608,15 @@
                   </div>
                 </td>
                 <td><span class="badge success">Approved</span></td>
-                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">View</button></div></td>
+                <td><div class="row-actions cell-secondary">Approved</div></td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div class="note">Wireframe note: the "Chain" column visualizes payer → recorder → approver directly, since that three-person flow was a specific requirement — worth confirming this reads clearly before we commit to it visually.</div>
+        <div class="note">The "Chain" column visualizes payer → recorder → approver directly, since that three-person flow was a specific requirement. <b>Confirmed as built.</b> The payer step is dropped entirely when there isn't one (the expense row above starts at "recorded"), and the payer is <code>payer_name</code> — a snapshot taken at transaction time, not a live join — which is what lets "12 students" be a payer at all. Below the <code>lg</code> breakpoint the chain stacks vertically with a ↓ instead of a →: it's the widest cell in the table, and truncating a name in an audit trail defeats the column.</div>
+        <div class="note"><b>Approved rows carry no action.</b> There is no reject and no edit — <code>finance_records.status</code> is <code>check (status in ('pending','approved'))</code> with no third value, and the money columns are unwritable. A transaction that shouldn't stand is fixed by recording a <b>correction</b>: a new row whose <code>corrects_id</code> points at the original. The superseded row stays in the table (that's the audit trail) but drops out of the list and the totals, and the replacement is flagged "(correction)" so the ledger doesn't look like it lost one. The earlier "View" control was dropped, matching Enrollment — there is no finance detail screen.</div>
+        <div class="note"><b>The stat cards are the only analysis here.</b> Pending count and month-to-date income, both computed from the corrected figures. Charts, trends and expense breakdowns are Phase 2 per <code>Bauhaven-Development-Plan.md</code> and deliberately absent. The income card says when it includes unapproved rows rather than lagging behind an Admin's queue, and "this month" is Cameroon's month — a payment at 00:30 WAT on the 1st belongs to the new month, not the old one.</div>
+        <div class="note"><b>This screen isn't in the nav for everyone.</b> Finance access is granted per person by an Admin (<code>auth_has_permission('finance', …)</code>), not by holding a Staff job title — so the sidebar link is hidden entirely from anyone without it, rather than shown leading to an empty table. "Nothing here" and "you can't see what's here" are different facts. Approving is Admin-only and has no grantable arm at all: a Staff member with full finance access still sees no Approve button. See <code>Bauhaven-Admin-Feature-Spec.md</code> §8, "Finance".</div>
       </div>
 
       <!-- ================= ENROLLMENT ================= -->

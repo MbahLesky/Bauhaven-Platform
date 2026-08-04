@@ -31,7 +31,8 @@ Each milestone's exact feature list comes from the **Phase 1 (MVP)** row of the 
 ## Testing gates (per the priority ladder in `testing-strategy`)
 
 Don't move a milestone to "done" without:
-1. **Business logic & data layer** — near-complete unit test coverage. For this platform that's: permission-override resolution, the finance approval-quorum logic, attendance excused-auto-fill from approved requests.
+1. **Business logic & data layer** — near-complete unit test coverage. For this platform that's: permission-override resolution, finance approval and its append-only correction resolution, attendance excused-auto-fill from approved requests.
+   *(Corrected during the Finance build: this line previously said "the finance approval-**quorum** logic". Finance has no quorum — `finance_records` carries a single `approved_by`. Quorum belongs to absence Requests, which track it in a separate `request_approvals` table. See Bauhaven-Database-Schema.md, "Two approval mechanisms, not one".)*
 2. **Critical flows** — one flow test per app's core job: Admin-web (approve a finance record), Academy-web/native (submit a task, check in to attendance), Admin-native (approve from the queue).
 3. **Manual checklist** at MVP stage for everything else — full automation comes with Phase 2, not before.
 
