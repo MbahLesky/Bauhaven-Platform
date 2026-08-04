@@ -875,12 +875,15 @@
                 <td>Physical</td>
                 <td><span class="badge neutral">Retired</span></td>
                 <td>—</td>
-                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">View</button></div></td>
+                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">Edit</button></div></td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div class="note">Confirmed: students cannot create Assets — creation stays Admin/Staff only, so this screen shows no student-facing entry point, unlike the Tasks screen above.</div>
+        <div class="note">Confirmed: students cannot create Assets — creation stays Admin/Staff only, so this screen shows no student-facing entry point, unlike the Tasks screen above. Note the difference from Tasks: <code>assets_write</code> has <b>no</b> permission-override arm, so this is a flat gate with nothing an Admin could grant to widen it. A non-Admin/Staff user gets an explanation, not a disabled button.</div>
+        <div class="note"><b>"Retired" is a status, not a delete.</b> <code>assets</code> carries both a <code>status</code> enum and a separate <code>deleted_at</code>, and they mean different things: a retired asset is end-of-life but still inventory, listed here and in Admin-native's field lookup with a Retired badge. Nothing on this screen writes <code>deleted_at</code>. Reads filter <code>deleted_at is null</code> and deliberately do <b>not</b> filter out retired rows. See <code>Bauhaven-Database-Schema.md</code>, "<code>status = 'retired'</code> is not a soft delete".</div>
+        <div class="note"><b>The retired row keeps its Edit control</b> (it previously showed "View"). Retiring isn't terminal — nothing in the schema makes the status one-way, and Admin-native can change a retired asset's status from the field, so making it one-way here would be a web-only restriction the other app can't honour. There is also no asset detail screen for a "View" to lead to, the same reason Enrollment dropped its own.</div>
+        <div class="note">The Type/Status toolbar is built as two real <code>&lt;select&gt;</code> controls rather than the buttons drawn above — same treatment as the Enrollment list, which this wireframe also draws as buttons. A native select gets keyboard handling and mobile pickers for free. Below the <code>md</code> breakpoint these rows become stacked cards.</div>
       </div>
 
       <!-- ================= CONTENT EDITOR ================= -->

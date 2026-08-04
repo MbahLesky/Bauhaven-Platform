@@ -46,7 +46,7 @@ Admin is the consolidated internal back-office — what would otherwise have bee
 - As Admin, I want to see financial analysis (a computed summary, not a stored table) to gauge Bauhaven's monthly health. *(**Phase 2** — the built screen has two stat cards, not charts.)*
 
 **Assets**
-- As Admin/Staff, I want to create/manage an Asset (physical or digital) and track its status.
+- As Admin/Staff, I want to create/manage an Asset (physical or digital) and track its status. *(Retiring an asset is a status change, not a removal — see §8, "Assets".)*
 - As Admin/Staff, I want to assign an Asset to a specific user.
 
 **Website content editor**
@@ -84,8 +84,8 @@ Admin is the consolidated internal back-office — what would otherwise have bee
 | 21 | Finance Record: approve/confirm | Admin only | Must | **A single Admin, not a quorum** — one `approved_by` column. No reject: a wrong entry is corrected, not refused. Needed `005` — no UPDATE policy existed, see §8 |
 | 22 | Finance Record: manage & view all | Admin only | Must | Also Staff with an individual `finance:view` grant. The nav link is hidden entirely without it, see §8 |
 | 23 | Financial analysis (computed summary) | Admin | Should | **Phase 2.** The Finance screen ships two stat cards (pending count, month-to-date income) and no charts — see `Bauhaven-Development-Plan.md` |
-| 24 | Asset: create/manage, set status | Admin, Staff | Must | |
-| 25 | Asset: assign to user | Admin, Staff | Must | |
+| 24 | Asset: create/manage, set status | Admin, Staff | Must | Flat Admin/Staff gate — no individual override exists, unlike Tasks. **"Retired" is a status, not a delete**, see §8 |
+| 25 | Asset: assign to user | Admin, Staff | Must | Any account may hold an asset; `assigned_to` has no role constraint. No delete UI shipped, see §8 |
 | 26 | Content editor: Page/ContentBlock (EN/FR) | Admin, Staff | Must | Publish triggers Next.js revalidation |
 | 27 | Blog: add post | Admin, Staff, User | Should | |
 | 28 | Blog: approve post | Admin, Staff | Should | |
@@ -520,3 +520,76 @@ These came out of implementing the Finance screen in `bauhaven-admin-web`.
   real audit affordance, but it isn't in the wireframe's form or this pass's scope. Worth
   adding when receipts are actually being filed; noted here so its absence is a decision
   rather than an oversight.
+
+### Assets — decisions made while building the screen
+
+These came out of implementing the Assets screen in `bauhaven-admin-web`. The first one
+resolves a question no document had answered.
+
+- **`status = 'retired'` is a status. It is not a soft delete, and this screen never
+  writes `deleted_at`.** `assets` carries both, and they mean different things: retired is
+  end-of-life but still inventory; `deleted_at` means the row shouldn't be in the
+  inventory at all (created by mistake, a duplicate).
+
+  **Admin-native settles this rather than preference.** Its Assets tab is a field lookup
+  that renders a `Retired` badge in its ordinary list, and its own note says *"Status
+  updates (e.g. marking 'needs repair') work here; creating new assets or reassigning them
+  stays on the web app."* So Admin-native both displays retired assets and writes
+  `status` — it has no delete capability at all. If retiring on the web set `deleted_at`,
+  the row would disappear from a screen whose wireframe shows it, and Admin-native's
+  status-update action could never produce that state. Full comparison table in
+  `Bauhaven-Database-Schema.md`.
+
+  Consequently: reads filter `deleted_at is null` and deliberately do **not** filter out
+  `retired`. The edit route excludes soft-deleted rows so a stale tab can't resurrect one,
+  but includes retired ones.
+
+- **Retiring is reversible, and the retired row keeps its Edit control.** The wireframe
+  originally showed "View" on that row; nothing in the schema makes `retired` one-way, and
+  Admin-native can change a retired asset's status from the field — so a terminal-on-web
+  interpretation would be a restriction the other app doesn't share and can't honour.
+  There is also no asset detail screen for a "View" to lead to, the same reason Enrollment
+  dropped its own. Wireframe updated.
+
+- **No delete UI, soft or hard.** Neither the feature list (#24, #25) nor the wireframe
+  has one, so none shipped — the same resolution Programs reached. Worth knowing when one
+  is eventually built: `assets_write` is `for all`, so RLS *does* permit a hard `DELETE`,
+  but `issue_reports.asset_id` references `assets(id)` with no `ON DELETE` clause, so any
+  asset with an issue report against it is `RESTRICT`-protected. That FK is itself the
+  argument for making that future control a soft delete.
+
+- **The write gate is flat Admin/Staff, with no override to account for.** Unlike Tasks
+  (`auth_has_permission('tasks','create')`) and unlike Finance (granted per person
+  entirely), `assets_write` is `for all using (auth_is_admin_or_staff())` with no
+  permission arm at all. That matches the confirmed decision above — a student appearing
+  as an Asset creator in the source document was unintentional. So the refusal message is
+  deliberately final ("this isn't something that can be granted individually") rather than
+  pointing someone at a request that can never be granted.
+
+- **The nav link stays visible to everyone**, unlike Finance's. Asset management isn't a
+  per-person grant, so there's nothing whose existence needs hiding; someone without
+  access gets an explanation rather than an empty inventory, which would read as
+  "Bauhaven owns nothing" instead of "this isn't yours to manage".
+
+- **Reading is wider than writing in RLS, and Admin-web doesn't build on that.**
+  `assets_select` also admits `assigned_to = auth.uid()`, so someone holding an asset can
+  see that one row. This screen is a management view rather than a "my equipment" view, so
+  it doesn't surface that — but it's why a student reaching `/assets` is told what the
+  screen is rather than shown an error.
+
+- **The assignee picker offers every account, unfiltered by role.** `assets.assigned_to`
+  has no role constraint and a projector goes to whoever has it; restricting the list
+  would invent a rule the schema doesn't have.
+
+- **Type is editable after creation.** An asset created as physical when it was digital is
+  a mistake to fix, not a different asset — nothing here is keyed on identity the way an
+  enrollment's student/program pair is.
+
+- **The Type/Status toolbar is two real `<select>` controls**, not the buttons the
+  wireframe draws — the same treatment Enrollment's filters got, and for the same reason:
+  a native select brings keyboard handling and mobile pickers for free.
+
+- **`assets` has no `created_by` column**, so unlike a task or a finance record there is
+  nothing to stamp the author onto. The audit trail here is `created_at` plus the
+  `updated_at` trigger, and that's all the schema offers. Noted so its absence reads as
+  the schema's shape rather than an omission in this screen.

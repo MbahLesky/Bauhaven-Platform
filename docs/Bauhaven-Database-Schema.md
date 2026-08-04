@@ -25,7 +25,7 @@ Companion to `001_initial_schema.sql`, which has been **tested end-to-end agains
 | `feedback` | Comments/ratings on a Submission |
 | `attendance_sessions` / `attendance_records` | Append-only attendance, corrections via `corrects_id` |
 | `finance_records` | Append-only transactions; separately tracks payer, recorder, and approver — e.g. a Student pays, Staff records, Admin approves |
-| `assets` | Physical/digital inventory, assignable to a user |
+| `assets` | Physical/digital inventory, assignable to a user. `status = 'retired'` and `deleted_at` are **different things** — see below |
 | `pages` / `content_blocks` | Website content editor tables, feed the live Next.js site |
 | `portfolio_entries` | Intern/student work showcased publicly |
 | `blogs` | User-authored posts, gated by Admin/Staff approval |
@@ -82,6 +82,26 @@ Writers have the mirror obligation: resolve the row being superseded **at write 
 Implemented and tested in `bauhaven-admin-web` as `src/lib/append-only.ts` — one generic collapse over `(id, corrects_id, created_at)`, used by Attendance (which partitions per student first, in `attendance-resolve.ts`) and by Finance (which resolves the whole ledger at once). Deliberately one implementation rather than one per feature: this is the rule most likely to be re-derived slightly differently the second time, and a ledger that quietly double-counts is not a bug anyone notices from the UI.
 
 The Finance build added a second demonstration of why: a transaction recorded as 50,000 and corrected to 45,000 sums to **95,000** from the raw table. That's covered by a test asserting the naive total *and* the resolved one, so the failure mode is documented in the suite rather than only in prose.
+
+## `status = 'retired'` is not a soft delete
+
+`assets` carries **both** a `status` enum (`fine` / `needs_repair` / `retired`) and a nullable `deleted_at`. They are different things, and the difference is cross-app, so it's recorded here rather than in one app's code:
+
+| | `status = 'retired'` | `deleted_at is not null` |
+|---|---|---|
+| Means | End of life, but still inventory | The row shouldn't be in the inventory at all — created by mistake, a duplicate |
+| Visibility | **Listed everywhere**, with a Retired badge | Filtered out of every query |
+| Reversible | Yes — set the status back | Only by clearing the column directly |
+| Who writes it | Admin-web's edit form, **and Admin-native's status update** | Nothing currently in either app |
+
+**Admin-native settles this, not preference.** Its Assets tab (`bauhaven-admin-native-wireframes.html`) is a field lookup that renders a `Retired` badge in its ordinary list, and its own note says *"Status updates (e.g. marking 'needs repair') work here; creating new assets or reassigning them stays on the web app."* So Admin-native both **displays** retired assets and **writes** `status` — it has no delete capability at all. If retiring on the web meant setting `deleted_at`, the row would vanish from a screen whose wireframe shows it, and Admin-native's status-update action could never produce that state.
+
+So: **retiring writes `status`. Nothing in Admin-web writes `deleted_at`.** Reads filter `deleted_at is null` and deliberately *do not* filter out `retired`.
+
+Two further consequences worth knowing:
+
+- `assets_write` is `for all using (auth_is_admin_or_staff())`, which covers `DELETE` — a hard delete is permitted by RLS. It would still usually fail: `issue_reports.asset_id` references `assets(id)` with no `ON DELETE` clause, so an asset with an issue report against it is `RESTRICT`-protected. That FK is itself an argument for soft-delete over hard delete when a removal UI is eventually built.
+- `idx_assets_status` is a plain index on `status`, unlike `idx_users_email` which is partial (`where deleted_at is null`). Nothing about the index assumes retired rows are rare or hidden.
 
 ## Index list (query → index)
 
@@ -148,6 +168,10 @@ Tested against a live Postgres instance with seeded Admin/Staff/Student accounts
 | Admin can approve a pending finance record | ✅ (as of `005` — impossible before it) |
 | **Nobody can edit a finance record's amount, Admin included** | ✅ (blocked by column-level grants in `005`) |
 | An Admin cannot un-approve or re-approve a finance record | ✅ (blocked) |
+| Staff can create and edit an Asset | ✅ |
+| **A Student cannot create or edit an Asset** | ✅ (blocked — flat gate, no override exists) |
+| A Student can read an Asset assigned to them | ✅ (`assigned_to = auth.uid()`) |
+| A Student cannot read Assets assigned to anyone else | ✅ (blocked) |
 
 `finance_records` had no `UPDATE` policy at all in `002` — combined with the append-only convention, this meant corrections could only happen as new rows with `corrects_id`, enforced at the database level rather than by convention.
 
