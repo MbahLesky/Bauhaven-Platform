@@ -246,12 +246,12 @@
     <!-- ================= ATTENDANCE ================= -->
     <div class="screen" id="screen-attendance">
       <h1 class="greeting">Attendance</h1>
-      <p class="greeting-sub">Today's session: 9:00am – 1:00pm</p>
+      <p class="greeting-sub">Today's session</p>
 
       <div class="checkin-card">
         <div class="checkin-status">You haven't checked in yet</div>
         <button class="btn btn-primary btn-lg">Check in now</button>
-        <div class="checkin-time">Works offline — syncs when you're back online</div>
+        <div class="checkin-time">Needs a connection. If it fails, try again — nothing is saved until it succeeds.</div>
       </div>
 
       <div class="stat-row">
@@ -265,6 +265,12 @@
       <div class="history-row"><span class="history-date">Thu, 30 Jul</span><span class="badge warning">Excused</span></div>
       <div class="history-row"><span class="history-date">Wed, 29 Jul</span><span class="badge success">Present</span></div>
       <div class="history-row"><span class="history-date">Tue, 28 Jul</span><span class="badge danger">Absent</span></div>
+
+      <div class="note"><b>"Works offline — syncs when you're back online" was removed.</b> Academy-<i>web</i> can't honour it: <code>Bauhaven-Architecture-Plan.md</code> §3 gives web clients best-effort caching and reserves genuine queued writes for the native clients' Drift storage. A web page can't guarantee a queued write ever syncs — the tab closes, the browser evicts storage, there's no durable background sync — and for attendance a false "saved, will sync" is the worst available failure: the student believes they're present and the register disagrees. A failed check-in is a plain error with a retry. <b>The native wireframe keeps the offline promise, because native can keep it.</b></div>
+      <div class="note"><b>"Today's session: 9:00am – 1:00pm" was removed.</b> <code>attendance_sessions</code> has <code>session_date</code> only — no start or end time — so those hours aren't representable. Adding time columns is a schema change nobody has asked for.</div>
+      <div class="note"><b>Three outcomes, not two.</b> Checking in succeeds, finds a record already standing, or is refused by <code>attendance_records_insert</code> (not actively enrolled in the session's program). "Already recorded" is announced as a status rather than an error — nothing failed and nothing was lost. A refusal points at a mentor, who <i>can</i> mark the student present, since Staff bypass the enrolment check.</div>
+      <div class="note"><b>A session nobody marked shows "Not marked", not "Absent".</b> On a student's own record that distinction matters: being told you were absent when the register was never taken is a different and worse statement, and it's the student who'd have to argue it back.</div>
+      <div class="note"><b>Excused sessions are left out of the rate's denominator</b> — present ÷ (present + absent). An approved absence is the system saying it doesn't count against you; folding it in would make excusing pointless.</div>
     </div>
 
     <!-- ================= REQUESTS (absence) ================= -->

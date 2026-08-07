@@ -27,7 +27,9 @@ Rationale for this split:
 **Online-first, with offline tolerance only where it's actually needed:**
 - Web clients (Admin, Academy): online-first — used with generally available connectivity.
 - Native clients (Admin, Academy): same online-first default, but built on Drift (local reactive SQLite) so attendance check-in and other field actions can queue locally and sync when back online — genuine offline tolerance rather than the web clients' best-effort caching.
-- Attendance check-in specifically: cache-and-queue regardless of client, since it's used at physical check-in points where wifi can be spotty.
+- Attendance check-in specifically: cache-and-queue **on the native clients**, since it's used at physical check-in points where wifi can be spotty.
+
+  *(Corrected during Academy-web's Attendance build. This line previously read "cache-and-queue **regardless of client**", which contradicted the line directly above it — web clients get best-effort caching, native gets genuine queued writes via Drift. The two readings can't both hold, and "regardless of client" is the one that has to give: a web page cannot guarantee a queued write ever syncs. The tab closes, the browser evicts storage, and there is no durable background-sync primitive in this stack. For attendance specifically that gap is not academic — a student who is told "saved, will sync when you're online" and then isn't on the register has been actively misled about the one thing this screen exists to record. Academy-web therefore fails a check-in with a plain error and a retry, and says so on the card. Keeping the queue native-only is also what makes native's offline capability a real differentiator rather than a nominal one.)*
 - Site: already live — whatever hosting it currently uses; the content editor adds a new integration point, not a new hosting decision.
 
 ## 4. Data model

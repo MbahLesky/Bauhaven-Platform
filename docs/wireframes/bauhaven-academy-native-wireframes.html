@@ -249,6 +249,7 @@
       <div class="history-row"><span class="history-date">Tue, 28 Jul</span><span class="badge danger">Absent</span></div>
 
       <div class="note">This is where native genuinely differs from web: the check-in writes to a local Drift database first, so it succeeds even with zero signal, then syncs silently once back online — the web version can only best-effort cache this.</div>
+      <div class="note"><b>This note was right and the web wireframe was wrong.</b> Academy-web's check-in card promised "Works offline — syncs when you're back online", a guarantee a web page can't make; it now says a connection is needed and a failure is a plain retry. Corrected during Academy-web's Attendance build, along with the line in <code>Bauhaven-Architecture-Plan.md</code> §3 that said attendance queues "regardless of client" — which contradicted the line above it. The split described here is the real one, and keeping it is what makes this screen a genuine reason to install the app.</div>
     </div>
 
     <!-- ================= REQUESTS ================= -->

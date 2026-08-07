@@ -55,7 +55,7 @@ All modeled as `UserRole` rows in Core — a person can hold more than one of th
 | 6 | Create own Task/Project (if granted permission) | Permission-gated | Should | Gate confirmed in Admin's spec |
 | 7 | Make Submission | All | Must | |
 | 8 | View Feedback/grades on Submission | Intern, Student | Must | |
-| 9 | Submit attendance (check-in) | All | Must | Cache-and-queue for poor connectivity |
+| 9 | Submit attendance (check-in) | All | Must | **Web: online-only**, plain error + retry on failure. Cache-and-queue is the *native* client's capability (Drift) — see `Bauhaven-Architecture-Plan.md` §3 and §8, "Attendance" |
 | 10 | View attendance statistics | All | Must | |
 | 11 | Submit absence/unavailability Request | All | Must | Entity owned by Core, submitted here |
 | 12 | View performance summary | All | Must | Confirmed to include Holiday-makers |
@@ -129,6 +129,70 @@ These came out of implementing Academy's Tasks screen, the other half of Admin-w
   `assigned_to = auth.uid() or created_by = auth.uid()`, so an explicit filter would
   duplicate the policy — and would also hide self-created tasks, which match on
   `created_by`, not `assigned_to`.
+
+### Attendance — decisions made while building the screen
+
+These came out of implementing Academy's self-check-in, the other half of Admin-web's
+roster marking.
+
+- **No offline queue on web, and the wireframe's promise of one was removed.** The card
+  read "Works offline — syncs when you're back online". Academy-web cannot honour that:
+  `Bauhaven-Architecture-Plan.md` §3 gives web clients best-effort caching and reserves
+  queued writes for the native clients' Drift storage. A web page can't guarantee a queued
+  write ever syncs — the tab closes, the browser evicts storage, there's no durable
+  background sync in this stack — and for attendance a false "saved, will sync" is the
+  worst available failure: the student believes they're present and the register says
+  otherwise. The card now says "Needs a connection… nothing is saved until it succeeds",
+  and a failure is a plain error with a retry. There's a test asserting the old wording
+  never comes back.
+
+  This also surfaced a contradiction inside §3 itself — one line gave web best-effort
+  caching, the next said attendance queues "regardless of client". Corrected there.
+
+- **A rejection from `attendance_records_insert` is a handled outcome, not a bug.** The
+  policy's self arm is `user_id = auth.uid() and auth_enrolled_in_session_program(...)`,
+  tested live earlier in the project. The page already scopes sessions to the student's
+  enrolled program, so a refusal shouldn't normally happen — but the policy is the
+  authority, not the page's query, and they can disagree (an enrolment withdrawn between
+  load and tap, a stale tab). It's caught and explained, and points at the person who can
+  fix it: a mentor, who *can* mark the student present because Staff bypass the check.
+
+- **Check-in is three outcomes, not ok/error.** Success, already-recorded, and refused
+  mean genuinely different things to someone standing in a doorway. "Already recorded" is
+  announced as a `status`, not an `alert` — nothing failed and nothing was lost, and
+  telling a student their attendance failed when it had already recorded is the wrong way
+  round.
+
+- **The duplicate check is the app's job, because the schema has no unique constraint.**
+  `attendance_records` has no unique index on `(session_id, user_id)`, so a second insert
+  would succeed and leave two standing rows for one session — exactly the double-count the
+  append-only correction chain exists to prevent, inflating the student's own rate. The
+  action resolves the existing record first and writes nothing if one stands.
+
+- **Self-check-in only ever writes `status = 'present'`, and never a correction.** Marking
+  yourself absent or excused asserts something only Staff can decide, and the policy
+  doesn't distinguish statuses — so the restriction lives in the app. `corrects_id` is
+  always null: adjusting attendance is a Staff override.
+
+- **`checked_in_at` is stamped here and left null by Admin-web.** That's what keeps a real
+  self-check-in distinguishable from a row Staff recorded on someone's behalf.
+
+- **Excused sessions are excluded from the attendance rate's denominator**, not counted as
+  absences: present ÷ (present + absent). An approved absence is the system saying "this
+  one doesn't count against you", so folding it in would make excusing pointless and
+  quietly punish a student for using the Requests flow correctly. **This changes the
+  number the Home screen previously showed** — it computed `present ÷ all rows`, which
+  both counted excused absences against the student *and* double-counted Staff
+  corrections. Both screens now share one function.
+
+- **The wireframe's "Today's session: 9:00am – 1:00pm" was removed.**
+  `attendance_sessions` has `session_date` only — no start or end time — so those hours
+  were not representable. Adding time columns is a schema change nobody has asked for; the
+  screen shows the session's date instead.
+
+- **Sessions are the one thing RLS doesn't scope.** `attendance_sessions_select` is
+  `using (true)`, so every authenticated user can read every session. Unlike `tasks` or
+  `attendance_records`, this query genuinely has to filter by `program_id` itself.
 
 ## 8. Confirmed decisions
 
