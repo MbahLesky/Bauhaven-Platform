@@ -188,7 +188,7 @@
           <div class="task-title">Build a responsive landing page</div>
           <div class="task-meta">Due tomorrow, 11:59pm</div>
         </div>
-        <span class="badge warning">Open</span>
+        <span class="badge neutral">Open</span>
       </div>
 
       <div class="section-title">Your performance</div>
@@ -217,7 +217,7 @@
           <div class="task-title">Personal portfolio site</div>
           <div class="task-meta">Self-created · no deadline</div>
         </div>
-        <span class="badge neutral">Draft</span>
+        <span class="badge neutral">Open</span>
       </div>
 
       <div class="section-title">Submitted &amp; graded</div>
@@ -233,10 +233,14 @@
           <div class="task-title">CSS Grid layout challenge</div>
           <div class="task-meta">Submitted 2 days ago</div>
         </div>
-        <span class="badge neutral">Grading</span>
+        <span class="badge warning">Grading</span>
       </div>
 
-      <div class="note">"Personal portfolio site" only appears here because Sam was individually granted permission to create their own tasks — most students won't see a create option.</div>
+      <div class="note">"Personal portfolio site" only appears here because Sam was individually granted permission to create their own tasks — most students won't see a create option. The "+ New task" control is hidden entirely without that grant, not disabled: it's an individual override most students don't hold, and a permanently greyed-out button is just a reminder of something they can't do.</div>
+      <div class="note"><b>Badge colours corrected to match Admin-web.</b> This screen originally had Open as <code>warning</code> and Grading as <code>neutral</code> — the inverse of Admin's, so the same task changed colour depending on which app you opened it in. Admin's reading is the semantically correct one and matches the brand guidelines' colour table: Open is nothing wrong, just work to do (neutral); Grading is waiting on someone (warning); Graded is done (success, carrying the grade itself).</div>
+      <div class="note"><b>"Draft" was not a real status.</b> <code>tasks.status</code> is <code>open</code>/<code>submitted</code>/<code>graded</code>/<code>archived</code> — a self-created task is simply <code>open</code>. It's distinguished by the "Self-created ·" prefix on its meta line, the same treatment Admin-web's list uses, rather than by a status that doesn't exist.</div>
+      <div class="note"><b>Submitting is one link, because that's all a submission is.</b> <code>submissions.content_url</code> is the only column carrying the work — there's no file storage and no body text — so a submission points at something hosted elsewhere. The card expands in place rather than navigating to a detail screen: one field doesn't warrant a whole screen transition on a phone.</div>
+      <div class="note"><b>Submitting moves the task to "submitted" via a database trigger</b>, not via this app — see <code>006_submission_marks_task_submitted.sql</code>. A student assigned a task can't update it (<code>tasks_update</code> is <code>created_by = auth.uid()</code>), and before that migration nothing performed the transition at all, so Admin-web's Submitted queue would have stayed empty forever.</div>
     </div>
 
     <!-- ================= ATTENDANCE ================= -->

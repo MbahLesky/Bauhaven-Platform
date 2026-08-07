@@ -103,6 +103,27 @@ Two further consequences worth knowing:
 - `assets_write` is `for all using (auth_is_admin_or_staff())`, which covers `DELETE` — a hard delete is permitted by RLS. It would still usually fail: `issue_reports.asset_id` references `assets(id)` with no `ON DELETE` clause, so an asset with an issue report against it is `RESTRICT`-protected. That FK is itself an argument for soft-delete over hard delete when a removal UI is eventually built.
 - `idx_assets_status` is a plain index on `status`, unlike `idx_users_email` which is partial (`where deleted_at is null`). Nothing about the index assumes retired rows are rare or hidden.
 
+## A submission moves its task to 'submitted' — by trigger, not by client
+
+`tasks.status` advances `open → submitted → graded`, and each transition has a different owner:
+
+| Transition | Who performs it | How |
+|---|---|---|
+| (create) → `open` | Admin-web, or a student with the `tasks:create` override | Insert, `status` never taken from the caller |
+| `open` → `submitted` | **The database** | `trg_submission_marks_task_submitted`, added in `006` |
+| `submitted` → `graded` | Admin-web | Update guarded on `.eq('status','submitted')` |
+
+The middle row is the one that wasn't obvious, and it was **broken until `006`**. Admin-web reads the submitted state (its queue tab, and its grading guard) but never writes it — reasonably, since staff don't submit student work. Academy-web inserts the `submissions` row. But nothing advanced the task:
+
+- `tasks_update` is `created_by = auth.uid() or auth_is_admin_or_staff()`. A student **assigned** a task has `assigned_to = auth.uid()` and `created_by = <staff>`, so they cannot update it.
+- No trigger did it either — the only triggers on `tasks` and `submissions` maintain `updated_at`.
+
+So a student could submit work and the task would sit at `open` forever: invisible in Admin's Submitted queue, and ungradeable, because Admin's `.eq('status','submitted')` guard would match zero rows and report "already graded by someone else". Silent on both sides — neither app would have raised anything.
+
+**Why a trigger rather than widening `tasks_update`.** Letting the assignee update their own task would grant far more than the problem needs: `title`, `deadline`, `description` and `assigned_to` would all become student-writable. Column privileges could narrow that (as `005` does for finance), but the transition would still be something every client has to remember — Academy-web today, Academy-native at M5. One would eventually forget, and the failure is invisible from both ends. The invariant is **a submission exists ⇒ its task is no longer open**, so it belongs to the schema.
+
+The trigger only advances `open`. A resubmission against an already-`graded` task deliberately does *not* reopen it: whether re-grading should be possible is a real workflow question nobody has answered, and `006` declines to answer it by accident. Against `submitted` it's a harmless no-op, which makes it idempotent.
+
 ## Index list (query → index)
 
 | Query this serves | Index |
@@ -132,6 +153,8 @@ Two further consequences worth knowing:
 **A real bug was caught during testing and fixed:** the helper functions query `user_roles`, which itself has an RLS policy that calls those same functions — infinite recursion. Fixed by making the helpers `SECURITY DEFINER`, so their internal query bypasses RLS rather than re-triggering the policy that called them. Confirmed no recursion after the fix.
 
 **A second bug was caught while building the Admin Applications screen — `003_application_approval_rls.sql`.** `applications_update` was `using (auth_is_admin_or_staff())` with no `WITH CHECK`, so any Staff member could write any status, `'approved'` included — while `Bauhaven-Admin-Feature-Spec.md` §8 has always said final approval is Admin-only. The policy and its own spec disagreed, and the matrix below had no case for it, so nothing caught it. UPDATE policies need **both** clauses to express "who may touch this row" and "what it may become" separately; `USING` alone only answers the first. Approval is now enforced in the database, in the Server Action, and in the UI independently — the UI hiding a button is not authorization, since a Server Action is reachable by direct POST.
+
+**A fifth was caught while building Academy-web's Tasks screen — `006_submission_marks_task_submitted.sql`.** Not a policy that contradicted its spec this time, but a transition with *no* owner: nothing advanced `tasks.status` from `open` to `submitted`, so a student's submission would never have reached Admin-web's queue. Found only by building both halves of the same feature and checking they met. See "A submission moves its task to 'submitted'" below.
 
 **A fourth was caught while building the Admin Finance screen — `005_finance_approval_rls.sql`.** `finance_records` had no `UPDATE` policy, which is correct for the money and wrong for approval: it left `status`, `approved_by` and `approved_at` permanently at their defaults and made feature #21 unimplementable. Fixed narrowly — see "Why append-only for Attendance and Finance" below. Building the Finance screen also turned up a documentation error rather than a schema one: `Bauhaven-Development-Plan.md` referred to "the finance approval-quorum logic", and finance has no quorum. Corrected there, and the distinction is now stated outright under "Two approval mechanisms, not one".
 
@@ -168,6 +191,11 @@ Tested against a live Postgres instance with seeded Admin/Staff/Student accounts
 | Admin can approve a pending finance record | ✅ (as of `005` — impossible before it) |
 | **Nobody can edit a finance record's amount, Admin included** | ✅ (blocked by column-level grants in `005`) |
 | An Admin cannot un-approve or re-approve a finance record | ✅ (blocked) |
+| A Student can submit work against a task assigned to them | ✅ |
+| A Student cannot submit as someone else | ✅ (blocked) |
+| **A Student cannot update a task assigned to them** | ✅ (blocked — `created_by`, not `assigned_to`; hence `006`'s trigger) |
+| A Student can read feedback on their own submission | ✅ |
+| A Student cannot read anyone else's submissions or feedback | ✅ (blocked) |
 | Staff can create and edit an Asset | ✅ |
 | **A Student cannot create or edit an Asset** | ✅ (blocked — flat gate, no override exists) |
 | A Student can read an Asset assigned to them | ✅ (`assigned_to = auth.uid()`) |
