@@ -102,6 +102,18 @@ Admin sends the specific path(s) affected by what was just published — the por
 
 Single Supabase Auth instance shared by Core, Admin, and Academy = **one login, works everywhere** — directly fixes the "previous apps not aligned" complaint. On login, each app fetches the user's *active* `UserRole` rows (not a single field) and shows only what those roles allow. If someone holds more than one active role — an intern also enrolled as a student, or a former intern now a Mentor — they get a lightweight **profile switcher** (e.g. "Continue as Intern" / "Continue as Mentor") rather than one app trying to merge both views into one screen. Phone/OTP as a login option is worth considering given intern/student populations may not all have reliable email. The public Site doesn't need accounts for browsing — only the application-submission form writes into Bauhaven's data.
 
+### Auth as built (Admin-web, then Academy-web)
+
+Both web apps now implement this section, and implement it **identically** — Academy's auth is a port of Admin's, not a re-derivation. Same middleware (session refresh + redirect), same Server Action with the same deliberately generic "Invalid email or password" (never distinguishing a wrong password from a missing account), same Zod schema in its own module rather than inside the `"use server"` file. That last point is a build-breaking constraint rather than a style preference: a schema exported from a `"use server"` file compiles fine but silently isn't the real schema by the time a client component imports it. One product having one login should mean one implementation of it, so a change to either app's auth belongs in both.
+
+Two deliberate deviations, both recorded rather than absorbed:
+
+- **"On login, each app fetches the user's active `UserRole` rows" is true of Admin, not yet of Academy.** Admin needs roles immediately — Finance access, Admin-only approvals, the Staff/Admin write gates — so it has `getCurrentUser` reading `user_roles`. Academy's screens are not role-gated yet: its nav is Home/Tasks/Attendance/Profile for everyone, and a role lookup with no consumer would be speculative code. Academy gains role-awareness when it gains the first thing that needs it, which is the profile switcher below.
+
+- **The profile switcher is not built in either app.** It is a Must in the Core Feature Spec (#7) and the Academy Feature Spec (#2), and it sits in M3's gate in the Development Plan — correctly, since it needs more than an auth pass to be meaningful: a real notion of which role a session is currently *acting as*, somewhere to persist that choice, and screens whose content actually varies by it. Academy's wireframe shows the entry point ("Viewing as Intern ▾" on Home). Building it inside a basic auth pass would have produced a dropdown that changes nothing. Core's own spec already flags this ("worth a quick wireframe of the profile switcher before building it") — that wireframe is still the prerequisite.
+
+**Phone/OTP login** remains unbuilt and unscoped; the note above says "worth considering", and nothing has decided it. Both apps are email + password today.
+
 ## 7. Roadmap
 
 Shipping all modules together — phasing here is by **depth within each app**, not by which app comes first.

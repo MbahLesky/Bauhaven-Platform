@@ -49,7 +49,7 @@ Core is the shared backend — and a small set of shared UI components — that 
 | 4 | Login/session (email + password) | All | Must | Supabase Auth |
 | 5 | Phone/OTP login | Users without reliable email | Should | Common for intern/student populations |
 | 6 | Profile management (photo, language, contact) | All | Must | |
-| 7 | Profile switcher (when a user has >1 active role) | Multi-role users | Must | Shared component, embedded inside Admin/Academy |
+| 7 | Profile switcher (when a user has >1 active role) | Multi-role users | Must | Shared component, embedded inside Admin/Academy. **Not built in either app.** Both have working auth as of Academy-web's auth pass; the switcher was deliberately left out of it — see `Bauhaven-Architecture-Plan.md` §6, "Auth as built" |
 | 8 | Invitations (send + accept) | Admin, Staff → invitee | Must | Drives onboarding |
 | 9 | Announcements (post, scoped to role/group) | Admin, Staff → all | Should | |
 | 10 | Notifications (system-generated: deadlines, approvals) | All | Should | |

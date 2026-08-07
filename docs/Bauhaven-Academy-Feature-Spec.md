@@ -48,7 +48,7 @@ All modeled as `UserRole` rows in Core — a person can hold more than one of th
 | # | Feature | User(s) | Priority | Notes |
 |---|---|---|---|---|
 | 1 | Dashboard: timeline based on registration (duration/fees) | All | Must | |
-| 2 | Profile switcher (if >1 active role) | Multi-role users | Must | Shared component from Core |
+| 2 | Profile switcher (if >1 active role) | Multi-role users | Must | Shared component from Core. **Not built** — auth shipped without it deliberately; it needs a real "acting as" session concept and screens that vary by role. Stays M3 scope, see `Bauhaven-Architecture-Plan.md` §6, "Auth as built" |
 | 3 | Profile management (photo, language, contact) | All | Must | |
 | 4 | View enrolled Programs/courses | All | Must | |
 | 5 | View assigned Tasks & deadlines | All | Must | |
