@@ -894,7 +894,6 @@
             <p class="page-sub">Editing: Homepage — Portfolio section</p>
           </div>
           <div style="display:flex; gap:10px;">
-            <button class="btn btn-secondary">Preview</button>
             <button class="btn btn-primary">Publish</button>
           </div>
         </div>
@@ -913,19 +912,22 @@
               <label class="field-label">Body</label>
               <textarea class="field-input">From bootcamp to internship, here's a look at what Bauhaven students have shipped this year.</textarea>
             </div>
-            <div class="field-group">
-              <label class="field-label">Featured portfolio entries</label>
-              <input class="field-input" value="3 entries selected — Fatima Njoya, Sam Student, Brice Talla">
-            </div>
           </div>
           <div class="sidebar-panel">
             <h4>Publish settings</h4>
-            <div class="toggle-row"><span>Visible on live site</span><div class="toggle on"></div></div>
-            <div class="toggle-row"><span>Show in FR</span><div class="toggle on"></div></div>
-            <div class="toggle-row"><span>Featured on homepage</span><div class="toggle"></div></div>
+            <div class="toggle-row"><span>Visible on live site</span><span class="badge success">Published</span></div>
+            <button class="btn btn-primary" style="width:100%; justify-content:center; margin-top:12px;">Publish</button>
+            <button class="btn btn-secondary" style="width:100%; justify-content:center; margin-top:8px;">Save draft</button>
+            <button class="btn btn-ghost" style="width:100%; justify-content:center; margin-top:8px;">Take off the site</button>
             <div class="note" style="margin-top:12px;">Publishing triggers the Next.js revalidation webhook — live within seconds, no rebuild.</div>
           </div>
         </div>
+        <div class="note"><b>The EN/FR tabs are real tab semantics over one shared form</b>, not two pages. Both panels stay mounted and only the inactive one is <code>hidden</code> — switching tabs must not lose what someone typed, and unmounting would do exactly that. A language with a half-filled field gets a dot on its tab, since the failure this screen exists to prevent is publishing without noticing the other tab is empty.</div>
+        <div class="note"><b>The publish rule: every field is filled in both languages, or in neither.</b> The database can't express it — every <code>_fr</code> column is nullable on purpose so a draft can be saved mid-sentence — so it's an app-level gate that applies only at publish. Saving a draft needs nothing but the English title. A field written in <i>one</i> language is what's refused, because that renders as a hole on a bilingual site; a field empty in both is perfectly publishable.</div>
+        <div class="note"><b>Three toggles became one status, and "Preview" was dropped.</b> Of the sidebar's original toggles only "Visible on live site" has a column behind it (<code>pages.status</code>). "Show in FR" and "Featured on homepage" would need schema that doesn't exist, and inventing it would settle product questions nobody has asked — "Show in FR" would also contradict the publish rule directly. "Featured portfolio entries" is a page→entry relation the schema has no way to express. "Preview" is dropped because no preview route is specified anywhere in <code>Bauhaven-Architecture-Plan.md</code>; the only Site contract that exists is the revalidation webhook, and inventing a second one is not a wireframe's job.</div>
+        <div class="note"><b>Blog is not on this screen and isn't built.</b> It shares the "Website" nav section, but the Architecture Plan's roadmap puts "blog with approval flow" in Phase 2. <code>content_blocks</code> is likewise not edited here — a block has no status of its own and goes live with its page.</div>
+        <div class="note"><b>Portfolio entries carry no consent field, deliberately.</b> The Project Brief lists Portfolio consent under "Known open items" as explicitly deferred, so Admin/Staff curation is the only gate. The editor says so in plain words next to the student picker rather than pretending the question is settled.</div>
+        <div class="note">Below the <code>lg</code> breakpoint the editor and this sidebar stack into one column — a 280px sidebar beside a text editor cannot fit the 360px floor, and the publish controls are the last thing someone reaches for anyway.</div>
       </div>
 
       <!-- ================= BLOG ================= -->

@@ -50,9 +50,9 @@ Admin is the consolidated internal back-office — what would otherwise have bee
 - As Admin/Staff, I want to assign an Asset to a specific user.
 
 **Website content editor**
-- As Admin/Staff, I want to edit Page/ContentBlock content (EN/FR) so the public site stays current without a developer.
+- As Admin/Staff, I want to edit Page/ContentBlock content (EN/FR) so the public site stays current without a developer. *(Pages shipped; publishing requires both languages — see §8, "Content Editor".)*
 - As Admin/Staff/User, I want to add a Blog post — only Admin/Staff can approve it before it's public.
-- As Admin/Staff, I want to publish a PortfolioEntry showcasing an intern/student's work, linked to their profile and Program.
+- As Admin/Staff, I want to publish a PortfolioEntry showcasing an intern/student's work, linked to their profile and Program. *(No consent step — deliberately deferred, see the Project Brief's "Known open items".)*
 
 **Issue reports** *(entity owned by Core, actioned here)*
 - As Admin/Staff, I want to view and resolve IssueReports routed to my scope.
@@ -86,10 +86,10 @@ Admin is the consolidated internal back-office — what would otherwise have bee
 | 23 | Financial analysis (computed summary) | Admin | Should | **Phase 2.** The Finance screen ships two stat cards (pending count, month-to-date income) and no charts — see `Bauhaven-Development-Plan.md` |
 | 24 | Asset: create/manage, set status | Admin, Staff | Must | Flat Admin/Staff gate — no individual override exists, unlike Tasks. **"Retired" is a status, not a delete**, see §8 |
 | 25 | Asset: assign to user | Admin, Staff | Must | Any account may hold an asset; `assigned_to` has no role constraint. No delete UI shipped, see §8 |
-| 26 | Content editor: Page/ContentBlock (EN/FR) | Admin, Staff | Must | Publish triggers Next.js revalidation |
-| 27 | Blog: add post | Admin, Staff, User | Should | |
-| 28 | Blog: approve post | Admin, Staff | Should | |
-| 29 | PortfolioEntry: publish, linked to User + Program | Admin, Staff | Should | |
+| 26 | Content editor: Page/ContentBlock (EN/FR) | Admin, Staff | Must | Publish triggers Next.js revalidation. **Pages shipped; `content_blocks` not edited** — a block has no status and goes live with its page. Publish requires both languages, see §8 |
+| 27 | Blog: add post | Admin, Staff, User | Should | **Phase 2**, not built — shares the Content Editor's nav section but is out of M2 scope |
+| 28 | Blog: approve post | Admin, Staff | Should | **Phase 2**, not built |
+| 29 | PortfolioEntry: publish, linked to User + Program | Admin, Staff | Should | Create/edit/publish shipped. **No consent field** — deferred per the Project Brief; curation is the only gate. Revalidates the index only until `slug` exists, see §8 |
 | 30 | Resolve IssueReport (routed by category) | Admin, Staff (scoped) | Must | Actioned here, entity owned by Core |
 
 ## 5. Out of scope — v1
@@ -593,3 +593,95 @@ resolves a question no document had answered.
   nothing to stamp the author onto. The audit trail here is `created_at` plus the
   `updated_at` trigger, and that's all the schema offers. Noted so its absence reads as
   the schema's shape rather than an omission in this screen.
+
+### Content Editor — decisions made while building the screen
+
+These came out of implementing the Content Editor in `bauhaven-admin-web`, the last
+screen in M2.
+
+- **The publish rule: every field is filled in both languages, or in neither.** The
+  schema can't express this — `title_fr`, `body_fr`, `description_fr` are all nullable on
+  purpose so a draft can be saved mid-sentence — so it's an app-level gate that applies
+  only at publish:
+  - **Saving a draft** needs nothing but the English title (`title_en` is the one
+    `not null` text column). Half-written work is the normal state of a draft; refusing to
+    save it would mean losing it.
+  - **Publishing** requires parity. A page live on a bilingual site with an empty French
+    body doesn't degrade gracefully — a French visitor gets a blank section, which is
+    worse than the page not being there. The Development Plan's own definition of done
+    says as much: "EN and FR both checked… a screen that only works in English isn't done."
+
+  "Or in neither" keeps the rule from being a nuisance: a page with no body at all is
+  perfectly publishable. Only a field written in *one* language is refused. The rule is
+  symmetric — French without English is just as much a hole — and every gap is reported
+  at once rather than one per attempt.
+
+- **The EN/FR tabs are one form, with both panels mounted.** Only the inactive panel is
+  `hidden`, which keeps its inputs registered with react-hook-form (switching tabs must
+  not lose typing) and out of the accessibility tree (a screen reader shouldn't be read
+  two copies of every field). Real `tablist`/`tab`/`tabpanel` semantics, unlike the filter
+  "tabs" elsewhere in Admin-web, which filter a list in place and use `aria-pressed`. A
+  language with a half-filled field gets a marker on its tab, because the failure this
+  screen exists to prevent is publishing without noticing the other tab is empty.
+
+- **The webhook cannot fail a publish, and that's tested rather than assumed.** The
+  database write commits first and independently; `revalidateSitePaths` never throws, and
+  the publish action wraps it anyway — depending on another module's promise not to throw
+  is not the same as not throwing, and by that point the row is already published. A
+  failure surfaces as the soft notice the Architecture Plan specifies ("Published — the
+  live site may take a few minutes to catch up"), announced as a `status`, not an `alert`.
+  Reading that out as an alert would tell someone their work failed when it didn't.
+
+- **`skipped` is a third outcome, distinct from `failed`.** With no
+  `SITE_REVALIDATE_URL`/`SECRET` configured, publishing works and says nothing was
+  refreshed. An Admin running against no Site is a normal local state, and reporting it as
+  a failure trains people to ignore the warning that matters.
+
+- **Portfolio entries revalidate the index only.** The Architecture Plan's contract
+  example shows a per-entry path (`/portfolio/a-booking-platform-…`), but
+  `portfolio_entries` has **no slug column** — so Admin has nothing to build that path
+  from, and a uuid-based guess would ask Site to revalidate a route that may not exist.
+  **This is an M6 dependency:** per-entry revalidation needs `slug` added to
+  `portfolio_entries` first. Flagged in the Architecture Plan rather than papered over.
+
+- **`slug` is not editable.** It maps a `pages` row to a route on the live Site, so
+  changing it silently breaks a URL that already exists in the wild and in search results.
+  Renaming a route is a Site code change, not a content edit. `pagePath()` maps slug
+  `home` to `/` — the one slug→path rule Admin has to guess at, to confirm at M6.
+
+- **Pages can't be created here; portfolio entries can.** Asymmetric on purpose. A `pages`
+  row whose slug matches no Site route is content nobody can reach, so a page is created
+  alongside its route in the Site's code. Portfolio entries have no such constraint and
+  Admin-web is the **only** surface that will ever create one — the Academy spec rules out
+  self-publishing outright ("that's the Site's Portfolio feature, curated by Admin/Staff,
+  not self-published here"). Everything created here starts as a draft; `status` is never
+  taken from the caller.
+
+- **No consent field on `portfolio_entries`, deliberately.** The Project Brief lists
+  Portfolio consent under "Known open items" as explicitly deferred, so Admin/Staff
+  curation remains the only gate and adding an opt-in column would settle a decision left
+  open on purpose. The editor says so in plain words beside the student picker rather than
+  pretending the question doesn't exist. Asserted in tests so it can't drift back in.
+
+- **Three sidebar toggles became one status, and Preview was dropped.** Of the wireframe's
+  "Visible on live site" / "Show in FR" / "Featured on homepage", only the first has a
+  column (`status`). The other two need schema that doesn't exist, and "Show in FR" would
+  contradict the publish rule outright. "Featured portfolio entries" is a page→entry
+  relation the schema can't express. "Preview" is dropped because no preview route is
+  specified anywhere — the revalidation webhook is the only Site contract that exists, and
+  inventing a second one is out of scope. Wireframe updated.
+
+- **Unpublishing exists, and revalidates too.** Content someone has decided shouldn't be
+  public, still being served from Site's cache, is the more urgent staleness of the two.
+  `published_at` is deliberately left alone — it records when this was last made public,
+  which stays true after it comes down.
+
+- **Blog and `content_blocks` are not here.** Blog shares the wireframe's "Website" nav
+  section but is Phase 2 per the Architecture Plan's roadmap; the Development Plan is
+  explicit that building Phase 2 work alongside M0–M6 is scope creep against an agreed
+  roadmap. `content_blocks` has no status of its own and goes live with its page, and
+  nothing in the wireframe edits one.
+
+- **`.env.example` did not exist**, despite the README's setup step 2 telling people to
+  copy it. Created, with both Supabase keys and the two revalidation variables documented
+  — including why `SITE_REVALIDATE_SECRET` has no `NEXT_PUBLIC_` prefix.

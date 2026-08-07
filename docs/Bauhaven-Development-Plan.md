@@ -20,7 +20,7 @@ Recommended sequence: **Admin-web → Academy-web → Admin-native → Academy-n
 |---|---|---|
 | M0 | Core: schema + RLS | ✅ Done — tested against live Postgres with seeded accounts, one recursion bug found and fixed |
 | M1 | Admin-web: scaffolded, real Supabase connection, one working screen (Dashboard) | `next build` clean, Dashboard reads real data from a dev Supabase project, auth redirect works |
-| M2 | Admin-web: MVP feature set | Programs, Applications, Tasks, Attendance, Finance, Assets, Content editor (see Phase 1 scope below) — each with loading/empty/error states, not just the happy path |
+| M2 | Admin-web: MVP feature set | ⚠️ **Named scope met; two open items before M3** — Programs, Applications, Tasks, Attendance, Finance, Assets and the Content editor all ship with loading/empty/error/success states. See "M2 close-out" below |
 | M3 | Academy-web: MVP feature set | Dashboard, Tasks, Attendance (with offline-tolerant queue on the client), Requests, Issue reporting, Profile switcher |
 | M4 | Admin-native: MVP | Home, Approvals (finance/applications/requests), Finance, Attendance (read-mostly), Assets — matching the deliberately-scoped-down wireframe, not full Admin-web parity |
 | M5 | Academy-native: MVP | Full parity with Academy-web's screens, plus real Drift-backed offline attendance check-in and FCM push for deadlines |
@@ -45,6 +45,20 @@ A bug fix without a regression test isn't done — this applies from M1 onward, 
 - EN and FR both checked — French runs 15–25% longer, and a screen that only works in English isn't done.
 - RLS-backed: the screen trusts the database's authorization, it doesn't duplicate permission logic in the client.
 - **Any doc this screen's behavior touches is updated in the same commit** — feature spec, wireframe, schema doc, or architecture plan, per `Bauhaven-Coding-Standards.md`'s documentation-sync rule. A screen that works but leaves its spec describing something else isn't done, it's drifted.
+
+## M2 close-out — what shipped, and the two things that didn't
+
+Every screen M2 names is built, each with real loading, empty, error and success states, and each RLS-backed rather than re-implementing permissions client-side. Building them surfaced four policy-vs-spec gaps that are now fixed in migrations `003`–`005`, plus one documentation error (this plan's own "finance approval-quorum" line).
+
+**Two items are open, and neither is Phase 2 work hiding behind the roadmap:**
+
+1. **Admin's sidebar links to `/issue-reports`, which doesn't exist.** Feature #30 ("Resolve IssueReport, routed by category", Admin/Staff, **Must**) is unbuilt. It isn't named in M2's gate list, and Phase 1 assigns issue *reporting* to Academy (M3) — but *resolving* one is Admin's job and the nav already promises it. Clicking it 404s today. Decide before M3 whether it belongs in M2's scope or moves to a milestone of its own; leaving a Must feature reachable-but-missing is the worst of the three options.
+
+2. **Admin's sidebar links to `/blog`, which doesn't exist and shouldn't yet.** Blog is Phase 2 by the Architecture Plan's roadmap, so *not building it* is correct — the defect is the link, not the absence. Either remove it from the nav until Phase 2 or render an explicit "coming in Phase 2" placeholder; a 404 is neither.
+
+Both are one-line product calls rather than engineering work, which is why they're recorded here instead of being decided unilaterally during the Content Editor build.
+
+**Also deferred, correctly, with the reasoning already written down:** Services (#6, not in M2's list), Projects and task deletion (#14/#15), Attendance's auto-excuse (blocked on Requests, a Phase 2 entity), the Application→Enrollment handoff (blocked on Invitations, likewise), financial analysis (#23, Phase 2), and per-entry portfolio revalidation (needs a `slug` column on `portfolio_entries` — an M6 prerequisite, see the Architecture Plan).
 
 ## What's explicitly not in scope for the MVP milestones above
 

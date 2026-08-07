@@ -90,6 +90,12 @@ Admin sends the specific path(s) affected by what was just published — the por
 { "error": { "code": "invalid_secret" | "revalidation_failed", "message": "..." } }
 ```
 
+**Implementation note (added during the Admin-web content editor build):** the contract above is implemented verbatim in `bauhaven-admin-web` as `src/lib/site-revalidate.ts` — header auth, both response shapes, `warn`-level logging, and the 2-attempt short backoff. Two things the build surfaced that the contract didn't cover:
+
+- **Per-entry portfolio paths aren't reachable yet.** The request-body example shows `/portfolio/a-booking-platform-for-a-local-tailor-shop`, but `portfolio_entries` has **no `slug` column** — so Admin has nothing to build that path from, and a uuid-based guess would ask Site to revalidate a route that may not exist. Publishing an entry currently sends `["/portfolio"]` (the index), which is correct and complete for a Site that renders entries from it. **Adding `slug` to `portfolio_entries` is an M6 prerequisite** if Site gives each entry its own route.
+- **A third outcome, "not configured".** With `SITE_REVALIDATE_URL`/`SITE_REVALIDATE_SECRET` unset, Admin publishes and reports that nothing was refreshed, rather than reporting a failure. An Admin instance running against no Site is a normal local-development state, and treating it as a failure trains people to ignore the warning that matters.
+- **Slug→path mapping.** Admin maps a page's slug to `/<slug>`, special-casing `home` → `/`. That's the one rule Admin has to guess at; confirm it against Site's real route table at M6.
+
 **Error handling — this call is best-effort, not transactional:** the content editor's "Publish" action commits the database write regardless of whether this webhook succeeds. A failed revalidation call is logged (`warn` level) and surfaced as a soft, non-blocking notice in Admin's UI ("Published — the live site may take a few minutes to catch up") rather than rolling back the publish or blocking the Staff member's workflow. Rationale: revalidation failing means a page is briefly stale, not that anything is broken or lost — treating it as fatal would hold real work hostage to a secondary system's uptime. A simple retry (2 attempts, short backoff) covers transient failures; anything beyond that just waits for the next publish or a manual re-trigger, since re-revalidating the same path twice is harmless (idempotent).
 
 ## 6. Auth strategy
