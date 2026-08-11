@@ -181,7 +181,7 @@
         <div class="quick-action" onclick="showScreen('report')"><div class="qa-icon"></div>Report<br>an issue</div>
         <div class="quick-action" onclick="showScreen('testimony')"><div class="qa-icon"></div>Share<br>feedback</div>
       </div>
-      <div class="note"><b>Two of the three are built.</b> Request absence and Report an issue have screens behind them; Share feedback (<code>testimonies</code>) doesn't, so the shipped Home renders a two-column grid rather than a three-up row with one dead button. The third column returns when Testimony exists.</div>
+      <div class="note"><b>All three are now built</b> — Request absence, Report an issue and Share feedback each have a screen. The shipped Home renders them as a three-column grid, with tighter padding and smaller labels than the other cards so three fit at the 360px responsive floor.</div>
 
       <div class="section-title">Due soon</div>
       <div class="task-card">
@@ -354,10 +354,24 @@
       <div class="list-item" style="flex-direction:column; align-items:stretch; gap:12px;">
         <div>
           <div style="font-size:12px; font-weight:600; margin-bottom:6px;">Your experience</div>
-          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="This bootcamp completely changed how I think about...">
+          <textarea class="btn-secondary" rows="4" style="text-align:left; font-weight:400;">This bootcamp completely changed how I think about...</textarea>
+          <div style="font-size:11px; color:#8a8a8a; margin-top:6px;">Write in whichever language you prefer — it's saved in the language set on your profile.</div>
         </div>
       </div>
       <button class="btn btn-primary" style="margin-top:8px;">Submit</button>
+      <p style="font-size:11px; color:#8a8a8a; margin-top:8px;">Bauhaven may feature this on the website. Nothing is published automatically — someone chooses, and you'll see it here if it goes up.</p>
+
+      <div class="section-title">Your testimonies</div>
+      <div class="task-card">
+        <div class="task-info"><div class="task-title" style="font-weight:400;">This bootcamp completely changed how I think about...</div><div class="task-meta">Shared 12 Jul 2026</div></div>
+        <span class="badge">Shared</span>
+      </div>
+
+      <div class="note"><b>One field is right, and it stays one field.</b> <code>testimonies</code> has separate <code>content_en</code> and <code>content_fr</code> columns, but which one a student's words belong in is answered by <code>users.preferred_language</code> server-side. Showing both boxes would have been the easier build and the wrong product — it asks someone to translate their own testimonial. The unused column stays <b>null</b>, never a copy: duplicating would tell the public Site that the French text <i>is</i> the English translation.</div>
+      <div class="note"><b>That needed a migration.</b> <code>content_en</code> was <code>text not null</code> while <code>content_fr</code> was nullable — fine for editorial content that ships in English and gets translated, wrong for a person's own words. A French-speaking student (a value <code>preferred_language</code> explicitly allows) could only have had their words stored in a column named for English, or a failed insert. <code>007_testimonies_bilingual_content.sql</code> makes <code>content_en</code> nullable with a check that at least one language is present.</div>
+      <div class="note"><b>This is <i>content</i> language, not interface language.</b> next-intl is in the Tech Stack doc and has never been set up in either app — every label on this screen is still a hard-coded English string. Second feature to run into it; see the Project Brief's "Known open items".</div>
+      <div class="note"><b>No consent checkbox.</b> Portfolio/testimony consent is explicitly deferred in the Project Brief, so inventing an opt-in here would quietly decide it. The subtitle plus the footer say what the policies actually guarantee: featuring is possible, and nothing publishes automatically — <code>testimonies</code> has no UPDATE policy, so no row can reach <code>'published'</code> today. Note a student also cannot withdraw one.</div>
+      <div class="note"><b>"Shared", not "Pending", and a neutral badge.</b> A testimony isn't an application waiting on a verdict, and one that never gets featured hasn't failed. <code>published</code> renders as "On the website".</div>
     </div>
 
     <!-- ================= PROFILE ================= -->

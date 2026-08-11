@@ -29,7 +29,7 @@ Companion to `001_initial_schema.sql`, which has been **tested end-to-end agains
 | `pages` / `content_blocks` | Website content editor tables, feed the live Next.js site |
 | `portfolio_entries` | Intern/student work showcased publicly |
 | `blogs` | User-authored posts, gated by Admin/Staff approval |
-| `testimonies` | Intern/student experience write-ups |
+| `testimonies` | Intern/student experience write-ups. `content_en` is **nullable** as of `007` — see below |
 
 ## Relationships summary
 
@@ -219,6 +219,34 @@ Net effect: exactly one UPDATE exists against this table — pending → approve
 Deliberately not extended to the submission's owner: a student who could update their own row could rewrite their own grade, and `submissions` has no `corrects_id` chain to make that visible the way `attendance_records` does.
 
 This is the third policy-versus-spec mismatch found by building against the schema rather than reading it (after the RLS recursion bug and `003`'s application-approval gap). Building the feature is what keeps finding them.
+
+## Why `testimonies.content_en` is nullable and `pages.title_en` isn't
+
+Both carry `_en`/`_fr` pairs, and they mean different things.
+
+**Editorial content** — `pages`, `content_blocks`, `portfolio_entries`, `programs` — is
+authored by Bauhaven, ships in English, and gets translated. English-required is the
+correct constraint there, and Admin-web's Content Editor goes further by refusing to
+*publish* until both languages exist.
+
+**A testimony is a person's own words.** `users.preferred_language` explicitly allows
+`'fr'`, and Bauhaven operates in a bilingual country, so a French-speaking student writing
+a French testimony is an ordinary case, not an edge one. Under the original
+`content_en text not null` that student had exactly two possible outcomes: their words
+stored in a column named for English — which the public Site would then render to English
+readers as the translation — or a failed insert. `007_testimonies_bilingual_content.sql`
+drops the `not null` and adds `check (content_en is not null or content_fr is not null)`,
+so the rule becomes "at least one language", and a French testimony is a complete row
+awaiting translation rather than a malformed one.
+
+Academy's Share-feedback screen writes exactly one of the two columns, chosen from
+`users.preferred_language`, and never both — a copy in both would assert that the French
+text *is* the English translation. Whoever builds the curation screen decides whether to
+translate before publishing; that's an editorial call, not a reason to refuse a submission.
+
+This is the fourth thing found by building against the schema rather than reading it
+(after the RLS recursion bug, `003`'s application-approval gap, and the grade/feedback
+split).
 
 ## Where a grade lives, and where feedback lives
 

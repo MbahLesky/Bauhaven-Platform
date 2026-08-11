@@ -59,7 +59,7 @@ All modeled as `UserRole` rows in Core — a person can hold more than one of th
 | 10 | View attendance statistics | All | Must | |
 | 11 | Submit absence/unavailability Request | All | Must | Entity owned by Core, submitted here. **Submission built; approval doesn't exist yet and is blocked by missing RLS — see §7, "Requests"** |
 | 12 | View performance summary | All | Must | Confirmed to include Holiday-makers |
-| 13 | Submit Testimony | Intern, Student, Holiday-maker | Should | |
+| 13 | Submit Testimony | Intern, Student, Holiday-maker | Should | **Submission built; no curation screen exists and `testimonies` has no UPDATE policy — see §7, "Testimonies"** |
 | 14 | Report an issue | All | Must | **Submission built; no Staff triage/resolution screen exists anywhere — see §7, "Issue reports"** |
 | 15 | Add Blog post (pending approval) | All | Could | Shared with Admin/Site |
 
@@ -330,9 +330,77 @@ triage view — which appears in Admin-web's sidebar wireframe *with a count bad
 its dashboard as an "Open issue reports" stat and in its activity feed), so it was always
 intended, but it has never been queued in this project's build sequence.
 
-### Three open threads, all pointing at the same missing surface
+### Testimonies — decisions made while building the screen
 
-Worth raising before Academy-web's remaining scope (Testimony, Profile) gets built further
+These came out of implementing the "Share feedback" screen (feature #13) in
+`bauhaven-academy-web`. **Submission only.**
+
+- **One free-text field, matching the wireframe — not two language boxes.** `testimonies`
+  has separate `content_en` and `content_fr` columns, but which one a student's words
+  belong in is not a question to put to the student: `users.preferred_language`
+  (`not null default 'en' check in ('en','fr')`) already answers it, and the Server Action
+  reads it there. Showing both fields would have been the easy implementation and the wrong
+  product — it asks someone to translate their own testimonial, which is a translator's job
+  and not a condition of saying something nice about a program. The unused column stays
+  **null**, never a copy of the other: duplicating would tell the public Site that the
+  French text *is* the English translation, and English readers would be shown French as
+  though it were theirs.
+
+- **This required a migration, `007_testimonies_bilingual_content.sql`.** `content_en` was
+  `text not null` while `content_fr` was nullable — an encoding of "every testimony is
+  written in English and French is an optional translation". That's right for editorial
+  content (`pages`, `portfolio_entries`, which Content Editor already treats that way) and
+  wrong for a person's own words. Under the old constraint a French-speaking student — a
+  value `preferred_language` explicitly allows, in a bilingual country — had two possible
+  outcomes: their words stored in a column named for English, or a failed insert. The
+  constraint now says "at least one language is present" via a table check, and
+  `content_en` is nullable. Safe to apply: nothing reads `testimonies` yet, and no existing
+  row can violate the new check.
+
+- **This is a *content*-language decision and did not need next-intl.** Content language
+  and interface language are different problems: the schema already models the first with
+  `_en`/`_fr` columns and `users.preferred_language`, while the second needs the i18n
+  library nobody has set up. This form's own labels are still hard-coded English. See the
+  Project Brief's "Known open items" — **next-intl remains outstanding across both apps**,
+  and this is the second feature to run into it.
+
+- **`program_id` is filled server-side from the active enrollment.** A pull-quote on the
+  public Site is about a program, and the student already said which one by enrolling —
+  asking again would be asking a question the system can answer. Nullable, so a student
+  between programs can still say something.
+
+- **`status` is not sent.** It defaults to `'submitted'` (`001_initial_schema.sql` line 469
+  — checked, not assumed) with a check constraint of submitted/published. Publishing is
+  Admin/Staff curation, and — as with `requests` — **`testimonies` has no UPDATE policy at
+  all**, so no row can reach `'published'` by any route today. The curation screen doesn't
+  exist either.
+
+- **The status labels avoid implying a verdict.** `submitted` renders as "Shared", not
+  "Pending", and its badge is neutral rather than warning: a testimony isn't an application
+  waiting on an answer, and one that never gets featured hasn't failed. `published` renders
+  as "On the website", which is what the student actually cares about.
+
+- **No consent gate, per the Project Brief's "Known open items".** Consent is deferred, not
+  decided — the same call Content Editor made for `portfolio_entries`, and inventing an
+  opt-in checkbox here would quietly decide it. What the screen *can* honestly say is the
+  wireframe's own subtitle plus what the policies guarantee: Bauhaven may feature this, and
+  nothing publishes automatically. Worth noting the deferral now bites harder: a student
+  cannot withdraw a testimony, since `testimonies` has SELECT and INSERT and nothing else.
+  The Project Brief item has been widened to name testimonies alongside portfolio entries.
+
+- **This is the one Academy query that must filter by the caller itself.**
+  `testimonies_select` is `user_id = auth.uid() or status = 'published' or
+  auth_is_admin_or_staff()`, and that middle arm is **not scoped to the caller**. Trusting
+  RLS the way the task, request and issue-report queries do would have made a screen headed
+  "Your testimonies" list every published testimony in the company as though the student
+  had written them. `attendance_sessions_select` being `using (true)` is the other
+  unscoped policy; this is the more dangerous of the two, because these rows belong to
+  identifiable other people.
+
+
+### Four open threads, all pointing at the same missing surface
+
+Worth raising before Academy-web's remaining scope (Profile) gets built further
 ahead of Admin-web. These are not three unrelated TODOs — they're one absent
 **approvals/triage surface in Admin-web**, seen from three sides:
 
@@ -341,13 +409,16 @@ ahead of Admin-web. These are not three unrelated TODOs — they're one absent
 | **Requests approval** | No screen; and `requests` has no UPDATE policy, `request_approvals` no INSERT | **Yes** — and the quorum rule and approver-routing have to be designed first |
 | **Attendance auto-excuse** (Admin-web feature #18) | No approved-absence state exists to derive from | No — unblocked by the above |
 | **Issue Reports resolution** | No screen only | **No** — `issue_reports_update` already exists |
+| **Testimony curation** | No screen; and `testimonies` has no UPDATE policy | **Yes** — a one-line policy, with no design question attached |
 
 The order follows from the table: Issue Reports triage is buildable **today** against
-existing policies, Requests approval needs a design decision *and* a migration before any
-UI, and Attendance's auto-excuse falls out of Requests approval for free. Academy-web now
-has three student-facing submission flows (tasks, absence requests, issue reports) whose
-staff-facing halves are all missing — students can put things into the system faster than
-anyone can take them out.
+existing policies; Testimony curation needs only a one-line UPDATE policy with no design
+question attached; Requests approval needs a design decision *and* a migration before any
+UI; and Attendance's auto-excuse falls out of Requests approval for free. Academy-web now
+has four student-facing submission flows (tasks, absence requests, issue reports,
+testimonies) whose staff-facing halves are all missing — students can put things into the
+system faster than anyone can take them out, and `bauhaven-academy-web`'s M3 scope is
+otherwise complete except for Profile.
 
 ## 8. Confirmed decisions
 
