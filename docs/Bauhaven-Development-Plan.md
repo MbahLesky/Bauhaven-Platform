@@ -21,7 +21,7 @@ Recommended sequence: **Admin-web → Academy-web → Admin-native → Academy-n
 | M0 | Core: schema + RLS | ✅ Done — tested against live Postgres with seeded accounts, one recursion bug found and fixed |
 | M1 | Admin-web: scaffolded, real Supabase connection, one working screen (Dashboard) | `next build` clean, Dashboard reads real data from a dev Supabase project, auth redirect works |
 | M2 | Admin-web: MVP feature set | ⚠️ **Named scope met; two open items before M3** — Programs, Applications, Tasks, Attendance, Finance, Assets and the Content editor all ship with loading/empty/error/success states. See "M2 close-out" below |
-| M3 | Academy-web: MVP feature set | Dashboard, Tasks, Attendance (with offline-tolerant queue on the client), Requests, Issue reporting, Profile switcher. **Auth is done ahead of this milestone** (login, middleware gate, sign-out, Vitest set up) — the profile switcher was deliberately excluded from that pass and remains part of this gate |
+| M3 | Academy-web: MVP feature set | ⚠️ **Every screen built; one named gate item outstanding.** Dashboard, Tasks, Attendance, Requests, Issue reporting, Testimony and Profile all ship with loading/error/success states, and Academy-web's wireframe now has no unbuilt screen. The **profile switcher** is the gap — Profile lists active roles read-only, and switching which role a session acts as still needs an "acting as" concept that doesn't exist. ~~Attendance (with offline-tolerant queue on the client)~~ — corrected during the Attendance build: web gets best-effort caching only, and the Drift-backed queue is M5's, per `Bauhaven-Architecture-Plan.md` §3. See "M3 close-out" below |
 | M4 | Admin-native: MVP | Home, Approvals (finance/applications/requests), Finance, Attendance (read-mostly), Assets — matching the deliberately-scoped-down wireframe, not full Admin-web parity |
 | M5 | Academy-native: MVP | Full parity with Academy-web's screens, plus real Drift-backed offline attendance check-in and FCM push for deadlines |
 | M6 | Site: Portfolio section | New `/portfolio` route reading from Supabase, on-demand ISR revalidation wired to Admin's content editor |
@@ -59,6 +59,39 @@ Every screen M2 names is built, each with real loading, empty, error and success
 Both are one-line product calls rather than engineering work, which is why they're recorded here instead of being decided unilaterally during the Content Editor build.
 
 **Also deferred, correctly, with the reasoning already written down:** Services (#6, not in M2's list), Projects and task deletion (#14/#15), Attendance's auto-excuse (blocked on Requests, a Phase 2 entity), the Application→Enrollment handoff (blocked on Invitations, likewise), financial analysis (#23, Phase 2), and per-entry portfolio revalidation (needs a `slug` column on `portfolio_entries` — an M6 prerequisite, see the Architecture Plan).
+
+
+## M3 close-out — Academy-web
+
+Every screen in `bauhaven-academy-web-wireframes.html` is built: Home, Tasks, Attendance,
+Requests, Report a problem, Share feedback, Profile. Four gates clean (`tsc`, `build`,
+`lint`, 167 Vitest tests).
+
+**Three items are open, and only the first is in M3's own gate list:**
+
+1. **The profile switcher (feature #2, Must) is still not built** — the third pass to leave
+   it out, and the first to say what exists instead: Profile lists active `user_roles` rows
+   read-only, with role, program and status. Switching needs somewhere to persist which
+   role a session is acting as, and screens whose content actually varies by it; neither
+   exists, and a dropdown that changed nothing would be worse than an honest list. It is
+   the one named M3 gate item outstanding, so **M3 is not closed**.
+
+2. **"View performance summary" (feature #12, Must) is unbuilt and isn't in M3's gate list
+   either.** Aggregated grades and feedback across submissions — the data is all there
+   (`submissions.grade`, `feedback`), and Academy's Tasks screen already shows both per
+   task. Same class of problem as Admin's `/issue-reports`: a Must feature that no
+   milestone claims. Decide whether it belongs to M3 or a milestone of its own.
+
+3. **next-intl remains unset up across both apps.** Profile's language toggle now persists
+   `users.preferred_language` for real, and the testimony form already consumes it — but
+   every label in Admin-web and Academy-web is still a hard-coded English string.
+   **Recommended as its own task, next**, rather than deferred a fourth time; see the
+   Project Brief's "Known open items".
+
+**Not gaps:** contact details are read-only (editing `email`/`phone` desynchronises
+`public.users` from `auth.users` without a `supabase.auth.updateUser` flow), and profile
+photo upload has no storage bucket to upload to. Both are recorded in the Academy Feature
+Spec rather than half-built.
 
 ## What's explicitly not in scope for the MVP milestones above
 

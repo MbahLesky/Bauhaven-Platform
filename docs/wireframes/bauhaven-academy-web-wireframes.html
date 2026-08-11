@@ -385,8 +385,9 @@
       </div>
 
       <div class="list-item"><span>Language</span><div class="lang-toggle-sm"><span class="active">EN</span><span>FR</span></div></div>
-      <div class="list-item">Edit profile photo <span class="chev">›</span></div>
-      <div class="list-item">Contact information <span class="chev">›</span></div>
+      <div class="list-item"><span>Email</span><span style="color:#8a8a8a;">sam@example.com</span></div>
+      <div class="list-item"><span>Phone</span><span style="color:#8a8a8a;">Not set</span></div>
+      <div class="list-item"><span>Location</span><span style="color:#8a8a8a;">Douala</span></div>
       <div class="list-item" onclick="showScreen('testimony')">My testimonies <span class="chev">›</span></div>
       <div class="list-item" onclick="showScreen('requests')">My requests <span class="chev">›</span></div>
       <div class="list-item" onclick="showScreen('report')">Reported issues <span class="chev">›</span></div>
@@ -395,6 +396,11 @@
       <div class="list-item">Intern — Web Development Bootcamp <span class="badge success">Active</span></div>
 
       <button class="btn btn-secondary" style="margin-top:20px;">Log out</button>
+
+      <div class="note"><b>The Language toggle is real.</b> It writes <code>users.preferred_language</code> (<code>not null default 'en' check in ('en','fr')</code>), and the Share-feedback screen already reads it to decide whether a testimony lands in <code>content_en</code> or <code>content_fr</code>. What it does <i>not</i> do is translate the interface — next-intl has never been set up in either app, so every label here is a hard-coded English string. The shipped screen says so under the toggle rather than letting someone tap FR and conclude the app is broken. Recommended as its own task next; see the Project Brief's "Known open items".</div>
+      <div class="note"><b>"Edit profile photo ›" and "Contact information ›" became read-only rows.</b> The columns all exist on <code>users</code>, but <code>email</code> and <code>phone</code> are also sign-in credentials and <code>public.users</code> holds them separately from <code>auth.users</code> — changing one without the other silently desynchronises an account from its login. That needs <code>supabase.auth.updateUser</code> and a re-verification flow, which is its own work. And there is no Supabase Storage bucket on this project, so nothing can produce a <code>profile_photo_url</code> to upload; the avatar falls back to initials, which is the normal case rather than the fallback.</div>
+      <div class="note"><b>Roles are a read-only list, not a switcher.</b> Third pass to leave the switcher out, and the first to ship something in its place. Listing what someone is needs a query; switching which role a session <i>acts as</i> needs somewhere to persist that and screens whose content varies by it — neither exists, and a dropdown that changed nothing would be worse than an honest list. The staff sub-role is shown when there is one ("Mentor" beats "Staff"), and <code>holiday_maker</code> renders as "Holiday participant".</div>
+      <div class="note"><b>Log out lives here now.</b> It sat in the app-shell header through the Auth pass as a documented stopgap until this screen existed. It's also rendered on Profile's error state, deliberately: this page is the app's only way out of a session, so someone signed into the wrong account behind a failing profile read would otherwise be stuck.</div>
     </div>
 
   </div>

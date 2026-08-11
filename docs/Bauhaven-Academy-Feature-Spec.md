@@ -48,8 +48,8 @@ All modeled as `UserRole` rows in Core — a person can hold more than one of th
 | # | Feature | User(s) | Priority | Notes |
 |---|---|---|---|---|
 | 1 | Dashboard: timeline based on registration (duration/fees) | All | Must | |
-| 2 | Profile switcher (if >1 active role) | Multi-role users | Must | Shared component from Core. **Not built** — auth shipped without it deliberately; it needs a real "acting as" session concept and screens that vary by role. Stays M3 scope, see `Bauhaven-Architecture-Plan.md` §6, "Auth as built" |
-| 3 | Profile management (photo, language, contact) | All | Must | |
+| 2 | Profile switcher (if >1 active role) | Multi-role users | Must | Shared component from Core. **Still not built** — third pass to leave it out, and the first to ship something in its place: Profile lists active roles **read-only**. Switching needs an "acting as" session concept and screens that vary by role; neither exists. The one named M3 gate item outstanding — see §7, "Profile" |
+| 3 | Profile management (photo, language, contact) | All | Must | **Built, partly read-only** — language persists to `users.preferred_language`; contact details display but don't edit; no photo upload (no storage bucket). See §7, "Profile" |
 | 4 | View enrolled Programs/courses | All | Must | |
 | 5 | View assigned Tasks & deadlines | All | Must | |
 | 6 | Create own Task/Project (if granted permission) | Permission-gated | Should | Gate confirmed in Admin's spec |
@@ -397,6 +397,65 @@ These came out of implementing the "Share feedback" screen (feature #13) in
   unscoped policy; this is the more dangerous of the two, because these rows belong to
   identifiable other people.
 
+
+
+### Profile — decisions made while building the screen
+
+These came out of implementing the Profile screen in `bauhaven-academy-web`, the last
+unbuilt screen in its wireframe.
+
+- **Everything the wireframe shows is storable today; no migration was needed.** `users`
+  already carries `name`, `email`, `phone`, `location`, `profile_photo_url` and
+  `preferred_language` (`not null default 'en' check in ('en','fr')`), and `user_roles`
+  carries `role`, `staff_sub_role`, `program_id` and `status`. The schema was checked before
+  assuming, and it turned out to be ahead of the apps rather than behind them.
+
+- **The language toggle is real, and it already has a consumer.** It writes
+  `users.preferred_language`, which Academy's testimony form reads to decide whether a
+  student's words go to `content_en` or `content_fr` — so flipping it changes where the
+  next testimony is stored. It is **not** a visual-only placeholder.
+
+- **What it does not do is translate the interface, and the screen says so.** next-intl has
+  never been set up in either app; every label, button, error and empty state is a
+  hard-coded English string. The screen reads "Your language is saved and used for anything
+  you write. The app's own labels are still English only — translation is coming", because
+  letting someone tap FR and conclude the app is broken is worse than admitting the gap.
+  **The recommendation is that full next-intl setup becomes its own task next** rather than
+  being deferred a fourth time — see the Project Brief's "Known open items" and the
+  Development Plan's M3 close-out.
+
+- **Contact details display but don't edit, deliberately.** The columns exist and
+  `users_update_own` would allow the writes, but `email` and `phone` are also sign-in
+  credentials, and `public.users` holds them separately from `auth.users`. Changing one
+  without the other silently desynchronises an account from its login — worse than not
+  offering the edit. It needs `supabase.auth.updateUser` plus a re-verification flow, which
+  is its own piece of work. `location` alone would have been an edit control for one field
+  of three. The wireframe's "Contact information ›" and "Edit profile photo ›" rows are
+  corrected accordingly.
+
+- **No photo upload, because there is nowhere to upload to.** `profile_photo_url` is a URL
+  column and no Supabase Storage bucket is configured on this project. The screen renders a
+  photo if a URL is ever set and falls back to initials, which is the normal case rather
+  than the fallback — nothing in either app can currently produce a URL.
+
+- **Roles are read-only, and this is the third deferral of the switcher.** Listing what
+  someone *is* needs only a query; switching which role a session *acts as* needs somewhere
+  to persist that choice and screens whose content varies by it. Neither exists, and a
+  dropdown that changed nothing would be worse than a list that's honest about being a
+  list. The sub-role is shown when there is one — "Mentor" is more useful than "Staff" —
+  and `holiday_maker` renders as "Holiday participant", since a database identifier isn't a
+  thing to show someone.
+
+- **Sign-out moved here and the header stopgap is gone.** It sat in the app-shell header
+  through the Auth pass, documented there as temporary until Profile existed. There is now
+  one sign-out in the app rather than two that could drift. It's also rendered on Profile's
+  **error** boundary, deliberately: this page is the only way out of a session, so someone
+  signed into the wrong account behind a failing profile read would otherwise be stuck.
+
+- **A missing `users` row is treated as a fault, not an empty state.** `handle_new_user`
+  creates it on sign-up, so its absence means something is wrong — surfaced through
+  `error.tsx` rather than rendered as a blank profile. A failed *roles* read is not fatal by
+  contrast: the name, email and language toggle are all still true and useful without it.
 
 ### Four open threads, all pointing at the same missing surface
 
