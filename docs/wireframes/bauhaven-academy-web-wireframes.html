@@ -181,7 +181,7 @@
         <div class="quick-action" onclick="showScreen('report')"><div class="qa-icon"></div>Report<br>an issue</div>
         <div class="quick-action" onclick="showScreen('testimony')"><div class="qa-icon"></div>Share<br>feedback</div>
       </div>
-      <div class="note"><b>Only "Request absence" is built.</b> Report an issue (<code>issue_reports</code>) and Share feedback (<code>testimonies</code>) are separate features nobody has built, so the shipped Home renders the one live action as a full-width row rather than a grid with two dead buttons. The grid returns when the other two exist.</div>
+      <div class="note"><b>Two of the three are built.</b> Request absence and Report an issue have screens behind them; Share feedback (<code>testimonies</code>) doesn't, so the shipped Home renders a two-column grid rather than a three-up row with one dead button. The third column returns when Testimony exists.</div>
 
       <div class="section-title">Due soon</div>
       <div class="task-card">
@@ -302,7 +302,7 @@
         <span class="badge warning">Waiting</span>
       </div>
 
-      <div class="note"><b>"Goes to your Programme Manager" was corrected to "Goes to staff".</b> "Programme Manager" isn't a role this schema has — <code>users.role</code> is admin/staff/user — and the quorum rule in the Core spec routes a User's request to <i>one Staff approval</i>, not to a named person. Nothing derives a supervisor: <code>users</code> has no such link.</div>
+      <div class="note"><b>"Goes to your Programme Manager" was corrected to "Goes to staff".</b> <i>(Correction to this note as first written: <code>programme_manager</code> <b>is</b> a real value — one of <code>user_roles.staff_sub_role</code>'s options, alongside auditor/coordinator/mentor. The earlier claim that no such role exists was wrong.)</i> The change still stands for the real reason: nothing connects a student to a particular programme manager — <code>user_roles.program_id</code> scopes a <i>staff</i> member to a program, with no reverse lookup and no supervisor link — and the quorum rule routes a User's request to <i>one Staff approval</i>, not to a named person.</div>
       <div class="note"><b>Two date fields, not one "6 Aug – 7 Aug 2026" text box.</b> <code>start_date</code> and <code>end_date</code> are separate <code>date</code> columns, and a free-text range is the field that submits "next week" and stores nothing usable. A single-day absence uses the same date twice.</div>
       <div class="note"><b>The badge shows "Waiting", not "Approved".</b> Approval isn't built — and it's blocked in the database, not just missing a screen: <code>requests</code> has SELECT and INSERT policies and no UPDATE, so no row can leave <code>'pending'</code> by any route. A wireframe showing an approved request implies a state the system currently cannot reach. See the Academy Feature Spec §7, "Requests".</div>
       <div class="note"><b>No cancel or edit control, because there couldn't be one.</b> With no UPDATE or DELETE policy, a student cannot withdraw a request they've sent. A button that always failed would be worse than its absence.</div>
@@ -317,14 +317,33 @@
       <div class="list-item" style="flex-direction:column; align-items:stretch; gap:12px;">
         <div>
           <div style="font-size:12px; font-weight:600; margin-bottom:6px;">Category</div>
-          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="Equipment / facilities">
+          <select class="btn-secondary" style="text-align:left; font-weight:400;">
+            <option>Equipment or facilities</option>
+            <option>Course or program</option>
+            <option>Account or access</option>
+            <option>Safety or wellbeing</option>
+            <option>Something else</option>
+          </select>
         </div>
         <div>
           <div style="font-size:12px; font-weight:600; margin-bottom:6px;">What's wrong?</div>
-          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="Projector in Room 2 won't turn on">
+          <textarea class="btn-secondary" rows="3" style="text-align:left; font-weight:400;">Projector in Room 2 won't turn on</textarea>
         </div>
       </div>
       <button class="btn btn-primary" style="margin-top:8px;">Submit report</button>
+      <p style="font-size:11px; color:#8a8a8a; margin-top:8px;">Staff can see your reports. If something is urgent or unsafe, tell a mentor directly as well — don't wait on this.</p>
+
+      <div class="section-title">Your reports</div>
+      <div class="task-card">
+        <div class="task-info"><div class="task-title">Equipment or facilities</div><div class="task-meta">Projector in Room 2 won't turn on</div></div>
+        <span class="badge warning">Open</span>
+      </div>
+
+      <div class="note"><b>Category is a fixed list, not a text box.</b> <code>issue_reports.category</code> is <code>text not null default 'general'</code> with <b>no check constraint</b>, so free text would put every report in a category of one — unsortable, and useless against the <code>(status, category)</code> index the schema already carries. Nothing upstream enumerates the values, so these five were chosen while building: <code>equipment</code>, <code>program</code>, <code>access</code>, <code>safety</code>, <code>general</code>. The first two mirror the nullable <code>asset_id</code> and <code>program_id</code> columns; <code>general</code> is kept verbatim because it's the column default.</div>
+      <div class="note"><b>The category is a label, not a destination.</b> The Core spec's "issue reports route to Staff by category" isn't implemented and never was: "category" appears only as that column and that index. <code>issue_reports_select</code> and <code>issue_reports_update</code> both gate on plain <code>auth_is_admin_or_staff()</code> with no category arm, so <i>any</i> Staff member or Admin can read and resolve <i>any</i> report. Corrected in the Core spec.</div>
+      <div class="note"><b>"Safety or wellbeing" doesn't summon anyone, and the screen says so.</b> It's a category so a Staff member scanning a list can see it without opening rows — but with no routing and no triage screen, telling a student to wait would be wrong. The footer points at a person instead.</div>
+      <div class="note"><b>Three statuses, not two.</b> The check constraint is <code>('open','in_progress','resolved')</code>. Academy's row type had it as <code>open | resolved</code>, which would have made a triaged report an impossible value; fixed, and all three render — "Open", "Being looked at", "Resolved".</div>
+      <div class="note"><b>No triage screen exists anywhere</b> — Admin-web's sidebar has "Issue Reports" with a count badge and its dashboard has an "Open issue reports" stat, so it was always intended, but it's never been queued. Unlike Requests approval this needs no migration: <code>issue_reports_update</code> already lets Admin/Staff resolve. See the Academy Feature Spec §7, "Three open threads".</div>
     </div>
 
     <!-- ================= TESTIMONY ================= -->

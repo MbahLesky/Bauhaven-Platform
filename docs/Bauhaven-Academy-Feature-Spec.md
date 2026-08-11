@@ -60,7 +60,7 @@ All modeled as `UserRole` rows in Core — a person can hold more than one of th
 | 11 | Submit absence/unavailability Request | All | Must | Entity owned by Core, submitted here. **Submission built; approval doesn't exist yet and is blocked by missing RLS — see §7, "Requests"** |
 | 12 | View performance summary | All | Must | Confirmed to include Holiday-makers |
 | 13 | Submit Testimony | Intern, Student, Holiday-maker | Should | |
-| 14 | Report an issue | All | Must | |
+| 14 | Report an issue | All | Must | **Submission built; no Staff triage/resolution screen exists anywhere — see §7, "Issue reports"** |
 | 15 | Add Blog post (pending approval) | All | Could | Shared with Admin/Site |
 
 ## 5. Out of scope — v1
@@ -246,9 +246,14 @@ These came out of implementing the absence-request screen (feature #11) in
   "works offline — syncs when you're back online".
 
 - **The wireframe's "Goes to your Programme Manager for approval" was corrected** to "Goes
-  to staff for approval". "Programme Manager" is not a role this schema has — `users.role`
-  is admin/staff/user — and the quorum rule routes a User's request to one *Staff*
-  approval, not to a named person.
+  to staff for approval". *(Correction to the note first written here: `programme_manager`
+  **is** a real value — it's one of `user_roles.staff_sub_role`'s options, alongside
+  auditor/coordinator/mentor. The earlier claim that the schema has no such role was
+  wrong. The substantive reason for the change stands: nothing connects a student to a
+  particular programme manager — `user_roles.program_id` scopes a **staff** member to a
+  program, and there is no reverse lookup or supervisor link — and the quorum rule routes
+  a User's request to one *Staff* approval, not to a named person. So the screen cannot
+  promise a specific individual.)*
 
 **Two-sided gap, for whoever picks up Requests-approval next.** Both halves are open and
 they're the same feature:
@@ -260,6 +265,89 @@ they're the same feature:
    unblocks it, and the Admin spec's Attendance section already records where the auto-excuse
    belongs when it does (the **read** path, as a derived default for students with no record
    yet, so a Staff override stays an ordinary mark).
+
+### Issue reports — decisions made while building the screen
+
+These came out of implementing the "Report a problem" screen (feature #14) in
+`bauhaven-academy-web`. **Submission only** — see the gap at the end of this section.
+
+- **"Routed to Staff by category" is not a routing mechanism. The category is a label.**
+  This was checked against the migrations rather than taken from the Core spec, and the
+  spec's wording overstates what exists. The word "category" appears in exactly two places
+  in the entire schema: the `issue_reports.category` column (`text not null default
+  'general'`, **no check constraint**) and the composite index
+  `idx_issue_reports_status_category`. There is no per-category staff assignment table, and
+  nothing connects a category to `user_roles.staff_sub_role` or to a permission.
+  `issue_reports_select` and `issue_reports_update` both gate on plain
+  `auth_is_admin_or_staff()` with **no category arm** — so every Staff member and every
+  Admin can read *and resolve* every report, whatever its category. The index is there so a
+  triage screen can filter and sort; that's the whole of it. Real routing would need a
+  category→staff mapping table or a category arm in the policies, and neither was built
+  speculatively. The Core spec's confirmed decision is annotated accordingly.
+
+- **Categories are a fixed list chosen here, because nothing upstream enumerates them.**
+  With no check constraint, free text would put every report in a category of one —
+  unsortable for whoever eventually triages, and useless against the index the schema
+  already carries. The five: **Equipment or facilities** (`equipment`, the wireframe's own
+  example), **Course or program** (`program`), **Account or access** (`access`), **Safety or
+  wellbeing** (`safety`), **Something else** (`general`). The first two mirror what the
+  schema already anticipates — `issue_reports` carries a nullable `asset_id` and a nullable
+  `program_id`, which is the schema saying the two expected kinds of problem are "a thing is
+  broken" and "something about my course". `general` is kept verbatim because it is the
+  column default, so a row written by anything that doesn't set the column lands in a bucket
+  the screen actually displays. Stored values are stable lowercase identifiers, never the
+  display strings: a triage filter should match `'equipment'`, and the label has to be
+  translatable EN/FR without rewriting rows.
+
+- **Safety is its own category, and the screen is explicit that it doesn't summon anyone.**
+  It earns a category so a Staff member scanning a list sees it without opening rows. But
+  since nothing routes by category and no triage screen exists, the screen tells the student
+  to tell a mentor directly as well rather than wait — the category cannot do work the
+  system doesn't do.
+
+- **`status` is not sent on insert.** The column defaults to `'open'`
+  (`001_initial_schema.sql` line 174 — checked, not assumed) with a check constraint of
+  `open`/`in_progress`/`resolved`. **Three states, not two** — Academy's row type had it as
+  `open | resolved`, which would have made a triaged report an impossible value the moment
+  anything set it. Fixed, and all three are rendered ("Open", "Being looked at", "Resolved").
+
+- **`asset_id` and `program_id` stay null.** Both exist and are FK'd, but `assets_select` is
+  `assigned_to = auth.uid() or auth_is_admin_or_staff()` — a student can read only the assets
+  signed out to them, which is not who reports a broken projector in a shared room. Attaching
+  either belongs to a triage screen, which is where that knowledge lives.
+
+- **`reporter_id` is filled from the session, never from client input**, with a test for it.
+  `issue_reports_insert` would refuse a forged one, but a report filed in someone else's
+  name is a bad enough outcome that the app shouldn't depend on the database catching it.
+
+- **Read-only list, no edit or withdraw.** `issue_reports_update` is
+  `using (auth_is_admin_or_staff())`, so a student cannot amend a report they've filed.
+
+**Unlike Requests, this gap is only a missing screen.** `issue_reports_update` already
+exists and already lets any Admin or Staff member move a report through
+open → in_progress → resolved. No migration is needed. What's missing is a Staff-facing
+triage view — which appears in Admin-web's sidebar wireframe *with a count badge* (and on
+its dashboard as an "Open issue reports" stat and in its activity feed), so it was always
+intended, but it has never been queued in this project's build sequence.
+
+### Three open threads, all pointing at the same missing surface
+
+Worth raising before Academy-web's remaining scope (Testimony, Profile) gets built further
+ahead of Admin-web. These are not three unrelated TODOs — they're one absent
+**approvals/triage surface in Admin-web**, seen from three sides:
+
+| Thread | Where it's blocked | Needs a migration? |
+| --- | --- | --- |
+| **Requests approval** | No screen; and `requests` has no UPDATE policy, `request_approvals` no INSERT | **Yes** — and the quorum rule and approver-routing have to be designed first |
+| **Attendance auto-excuse** (Admin-web feature #18) | No approved-absence state exists to derive from | No — unblocked by the above |
+| **Issue Reports resolution** | No screen only | **No** — `issue_reports_update` already exists |
+
+The order follows from the table: Issue Reports triage is buildable **today** against
+existing policies, Requests approval needs a design decision *and* a migration before any
+UI, and Attendance's auto-excuse falls out of Requests approval for free. Academy-web now
+has three student-facing submission flows (tasks, absence requests, issue reports) whose
+staff-facing halves are all missing — students can put things into the system faster than
+anyone can take them out.
 
 ## 8. Confirmed decisions
 

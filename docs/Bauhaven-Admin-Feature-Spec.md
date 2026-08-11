@@ -55,7 +55,7 @@ Admin is the consolidated internal back-office — what would otherwise have bee
 - As Admin/Staff, I want to publish a PortfolioEntry showcasing an intern/student's work, linked to their profile and Program. *(No consent step — deliberately deferred, see the Project Brief's "Known open items".)*
 
 **Issue reports** *(entity owned by Core, actioned here)*
-- As Admin/Staff, I want to view and resolve IssueReports routed to my scope.
+- As Admin/Staff, I want to view and resolve IssueReports routed to my scope. *(**Not built** — the sidebar wireframe has "Issue Reports" with a count badge and the dashboard has an "Open issue reports" stat, but no screen was ever queued. `bauhaven-academy-web` now files reports, so rows will exist with nobody working them. Buildable today with no migration: `issue_reports_update` is already `using (auth_is_admin_or_staff())`. Note "routed to my scope" overstates the schema — there is no routing; any Admin/Staff can read and resolve any report, and `category` is a filterable label. See the Academy Feature Spec §7, "Issue reports".)*
 
 ## 4. Feature list
 
