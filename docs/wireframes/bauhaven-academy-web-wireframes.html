@@ -181,6 +181,7 @@
         <div class="quick-action" onclick="showScreen('report')"><div class="qa-icon"></div>Report<br>an issue</div>
         <div class="quick-action" onclick="showScreen('testimony')"><div class="qa-icon"></div>Share<br>feedback</div>
       </div>
+      <div class="note"><b>Only "Request absence" is built.</b> Report an issue (<code>issue_reports</code>) and Share feedback (<code>testimonies</code>) are separate features nobody has built, so the shipped Home renders the one live action as a full-width row rather than a grid with two dead buttons. The grid returns when the other two exist.</div>
 
       <div class="section-title">Due soon</div>
       <div class="task-card">
@@ -276,12 +277,16 @@
     <!-- ================= REQUESTS (absence) ================= -->
     <div class="screen" id="screen-requests">
       <h1 class="greeting">Request Absence</h1>
-      <p class="greeting-sub">Goes to your Programme Manager for approval</p>
+      <p class="greeting-sub">Goes to staff for approval</p>
 
       <div class="list-item" style="flex-direction:column; align-items:stretch; gap:12px;">
         <div>
-          <div style="font-size:12px; font-weight:600; margin-bottom:6px;">Dates</div>
-          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="6 Aug – 7 Aug 2026">
+          <div style="font-size:12px; font-weight:600; margin-bottom:6px;">First day away</div>
+          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="6 Aug 2026">
+        </div>
+        <div>
+          <div style="font-size:12px; font-weight:600; margin-bottom:6px;">Last day away</div>
+          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="7 Aug 2026">
         </div>
         <div>
           <div style="font-size:12px; font-weight:600; margin-bottom:6px;">Reason</div>
@@ -289,12 +294,19 @@
         </div>
       </div>
       <button class="btn btn-primary" style="margin-top:8px;">Submit request</button>
+      <p style="font-size:11px; color:#8a8a8a; margin-top:8px;">Your mentors can see your requests. Approving them isn't handled in the app yet, so a mentor will confirm with you directly.</p>
 
-      <div class="section-title">Past requests</div>
+      <div class="section-title">Your requests</div>
       <div class="task-card">
         <div class="task-info"><div class="task-title">12 Jul 2026</div><div class="task-meta">Medical appointment</div></div>
-        <span class="badge success">Approved</span>
+        <span class="badge warning">Waiting</span>
       </div>
+
+      <div class="note"><b>"Goes to your Programme Manager" was corrected to "Goes to staff".</b> "Programme Manager" isn't a role this schema has — <code>users.role</code> is admin/staff/user — and the quorum rule in the Core spec routes a User's request to <i>one Staff approval</i>, not to a named person. Nothing derives a supervisor: <code>users</code> has no such link.</div>
+      <div class="note"><b>Two date fields, not one "6 Aug – 7 Aug 2026" text box.</b> <code>start_date</code> and <code>end_date</code> are separate <code>date</code> columns, and a free-text range is the field that submits "next week" and stores nothing usable. A single-day absence uses the same date twice.</div>
+      <div class="note"><b>The badge shows "Waiting", not "Approved".</b> Approval isn't built — and it's blocked in the database, not just missing a screen: <code>requests</code> has SELECT and INSERT policies and no UPDATE, so no row can leave <code>'pending'</code> by any route. A wireframe showing an approved request implies a state the system currently cannot reach. See the Academy Feature Spec §7, "Requests".</div>
+      <div class="note"><b>No cancel or edit control, because there couldn't be one.</b> With no UPDATE or DELETE policy, a student cannot withdraw a request they've sent. A button that always failed would be worse than its absence.</div>
+      <div class="note"><b>Reason is required, though the column is nullable.</b> A request with no reason gives the approver nothing to decide on, and there's no comment thread on <code>requests</code> for them to ask a follow-up through. Rendered as a textarea for the same reason — a one-line box invites a three-word answer.</div>
     </div>
 
     <!-- ================= REPORT ISSUE ================= -->

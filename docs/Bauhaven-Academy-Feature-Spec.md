@@ -57,7 +57,7 @@ All modeled as `UserRole` rows in Core — a person can hold more than one of th
 | 8 | View Feedback/grades on Submission | Intern, Student | Must | |
 | 9 | Submit attendance (check-in) | All | Must | **Web: online-only**, plain error + retry on failure. Cache-and-queue is the *native* client's capability (Drift) — see `Bauhaven-Architecture-Plan.md` §3 and §8, "Attendance" |
 | 10 | View attendance statistics | All | Must | |
-| 11 | Submit absence/unavailability Request | All | Must | Entity owned by Core, submitted here |
+| 11 | Submit absence/unavailability Request | All | Must | Entity owned by Core, submitted here. **Submission built; approval doesn't exist yet and is blocked by missing RLS — see §7, "Requests"** |
 | 12 | View performance summary | All | Must | Confirmed to include Holiday-makers |
 | 13 | Submit Testimony | Intern, Student, Holiday-maker | Should | |
 | 14 | Report an issue | All | Must | |
@@ -193,6 +193,73 @@ roster marking.
 - **Sessions are the one thing RLS doesn't scope.** `attendance_sessions_select` is
   `using (true)`, so every authenticated user can read every session. Unlike `tasks` or
   `attendance_records`, this query genuinely has to filter by `program_id` itself.
+
+### Requests — decisions made while building the screen
+
+These came out of implementing the absence-request screen (feature #11) in
+`bauhaven-academy-web`. **Submission only** — see the gap at the end of this section.
+
+- **The approval half is missing in the database, not just in the UI.** This is the point
+  worth carrying forward. `requests` has a SELECT policy and an INSERT policy and *nothing
+  else*: no UPDATE, so no row can ever leave `'pending'`, by anyone, including an Admin.
+  `request_approvals` has SELECT and UPDATE policies but **no INSERT**, so no approver row
+  can be created either. So building an Admin approval screen is not only a UI task — it
+  needs a migration first, in the same family as `004_submission_grading_rls.sql` and
+  `005_finance_approval_rls.sql`. That migration is deliberately *not* written yet, because
+  its `with check` clause has to encode the quorum rule, and quorum is exactly the part
+  nobody has designed: see the two open questions below.
+
+- **No `request_approvals` rows are created at submission.** The table needs one row per
+  required approver, and who those approvers are depends on routing that doesn't exist —
+  the Core spec (§8) says a User's request needs one Staff approval, but nothing says
+  *which* Staff member, and `users` has no supervisor link to derive it from. Whether rows
+  are created eagerly at submission or lazily when a Staff member first opens a queue is a
+  decision belonging to the approval screen; guessing here would seed rows that screen then
+  has to work around.
+
+- **`status` is not sent on insert at all.** The column defaults to `'pending'`
+  (`001_initial_schema.sql` line 140 — checked, not assumed). Beyond ordinary
+  don't-write-what-the-schema-owns hygiene, this matters because the quorum rule
+  auto-approves when the company has exactly one Admin (zero *other* Admins = quorum
+  trivially met). Whatever eventually implements that — a trigger, a different default, an
+  edge function — would be fighting a client that hardcoded `'pending'`.
+
+- **`type` *is* sent, explicitly `'absence'`.** The column has a default but no check
+  constraint, so any text would be accepted. What the student is asking for is a fact this
+  client knows; where it sits in a workflow is not. That's the line between the two.
+
+- **`reason` is required by the form though the column is nullable.** A request with no
+  reason gives the person deciding it nothing to decide on, and `requests` has no comment
+  thread for them to ask a follow-up through. Same call, same reasoning, as
+  `submissions.content_url`.
+
+- **There is no cancel or edit control, because there could not be one.** With no UPDATE or
+  DELETE policy on `requests`, a student cannot withdraw a request they've sent. A control
+  that always failed would be worse than its absence — so the screen doesn't offer one, and
+  the form warns about the range length instead (a mistyped year would otherwise sit in the
+  queue uncorrectable).
+
+- **The screen says approvals aren't handled in the app yet, in as many words.** Submitting
+  is genuinely useful today: `requests_select` lets Staff and Admin read every request, so
+  the information reaches them. What doesn't exist is anywhere to record a decision.
+  Implying one is coming would be the same class of promise as Attendance's since-removed
+  "works offline — syncs when you're back online".
+
+- **The wireframe's "Goes to your Programme Manager for approval" was corrected** to "Goes
+  to staff for approval". "Programme Manager" is not a role this schema has — `users.role`
+  is admin/staff/user — and the quorum rule routes a User's request to one *Staff*
+  approval, not to a named person.
+
+**Two-sided gap, for whoever picks up Requests-approval next.** Both halves are open and
+they're the same feature:
+1. *This side* — no approval screen exists anywhere (Admin-web's feature list has skipped
+   it), and the RLS above has to land before one can work.
+2. *Admin-web's Attendance* — feature #18's auto-excuse from an approved absence Request is
+   marked `TODO(requests)` in `src/lib/schemas/attendance.ts` and at the roster query,
+   because there was no approved-absence state to derive from. Approvals landing is what
+   unblocks it, and the Admin spec's Attendance section already records where the auto-excuse
+   belongs when it does (the **read** path, as a derived default for students with no record
+   yet, so a Staff override stays an ordinary mark).
 
 ## 8. Confirmed decisions
 

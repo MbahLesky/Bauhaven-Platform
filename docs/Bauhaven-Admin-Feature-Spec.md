@@ -313,9 +313,13 @@ These came out of implementing the Attendance screen in `bauhaven-admin-web`.
   different program and therefore a different list of students.
 
 - **Auto-excuse from an approved absence Request (feature #18's dependency) is not built.**
-  The Requests approval flow doesn't exist in Admin — `requests` and `request_approvals` are
-  in `001_initial_schema.sql` and nothing reads or writes them, so there is no approved-absence
-  state to derive anything from. All three statuses are set manually by Staff/Admin. Building
+  The Requests approval flow doesn't exist in Admin, so there is no approved-absence state to
+  derive anything from. *(Updated: `bauhaven-academy-web` now writes `requests` — students can
+  submit absence requests, and Staff/Admin can read them, since `requests_select` covers them.
+  What's still missing is the deciding half, and it's blocked in the database as well as in the
+  UI: `requests` has no UPDATE policy for anyone, so no row can leave `'pending'`, and
+  `request_approvals` has no INSERT policy, so no approver row can be created. See the Academy
+  spec's "Requests" section for the full shape of the gap.)* All three statuses are set manually by Staff/Admin. Building
   half of Requests to fill the gap was rejected as worse than leaving it visibly absent; the
   gap is marked with `TODO(requests)` in `src/lib/schemas/attendance.ts` and at the roster
   query in `src/app/(app)/attendance/page.tsx`. When it lands, the auto-excuse belongs in the
