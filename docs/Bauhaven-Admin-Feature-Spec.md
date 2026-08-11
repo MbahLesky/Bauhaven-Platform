@@ -36,7 +36,7 @@ Admin is the consolidated internal back-office — what would otherwise have bee
 - As Admin/Staff, I want to give Feedback on a submission, scoped to students assigned to me.
 
 **Attendance**
-- As Admin/Staff, I want to create attendance sessions and track who attended. *(An approved absence Request from Core auto-marks the session excused — **not built yet**, see §8, "Attendance".)*
+- As Admin/Staff, I want to create attendance sessions and track who attended. *(An approved absence Request from Core auto-marks the session excused — **built**, see §8, "Approvals & triage".)*
 
 **Finance**
 - As Admin, I want to grant Finance access to a specific Staff member (typically an Auditor) so they can work with transactions — access isn't automatic just from holding that job title.
@@ -55,7 +55,8 @@ Admin is the consolidated internal back-office — what would otherwise have bee
 - As Admin/Staff, I want to publish a PortfolioEntry showcasing an intern/student's work, linked to their profile and Program. *(No consent step — deliberately deferred, see the Project Brief's "Known open items".)*
 
 **Issue reports** *(entity owned by Core, actioned here)*
-- As Admin/Staff, I want to view and resolve IssueReports routed to my scope. *(**Not built** — the sidebar wireframe has "Issue Reports" with a count badge and the dashboard has an "Open issue reports" stat, but no screen was ever queued. `bauhaven-academy-web` now files reports, so rows will exist with nobody working them. Buildable today with no migration: `issue_reports_update` is already `using (auth_is_admin_or_staff())`. Note "routed to my scope" overstates the schema — there is no routing; any Admin/Staff can read and resolve any report, and `category` is a filterable label. See the Academy Feature Spec §7, "Issue reports".)*
+- As Admin/Staff, I want to view and resolve IssueReports. *(**Built** at `/issue-reports`. "Routed to my scope" was struck from this line because the schema has never supported it: any Admin/Staff reads and resolves any report, and `category` is a filterable label — see §8, "Approvals & triage".)*
+- As Admin/Staff, I want to approve or reject absence Requests. *(**Built** at `/requests`, with the Core spec's quorum rule and auto-excuse into Attendance. Needed `008_request_approval_rls.sql` first — see §8.)*
 
 ## 4. Feature list
 
@@ -78,7 +79,7 @@ Admin is the consolidated internal back-office — what would otherwise have bee
 | 15 | Delete Task/Project | Creator | Must | **Not built.** `tasks_delete` RLS (`created_by = auth.uid()`) exists; no delete UI in this pass |
 | 16 | Submission | Admin, Staff, Student | Must | |
 | 17 | Feedback on submission | Admin, Staff (scoped) | Must | `feedback.comment` + optional 1-5 `feedback.rating`; written together with the grade, see §8 |
-| 18 | Attendance sessions: create & track | Admin, Staff | Must | Auto-excuse via approved Request (Core) — **not built**, blocked on Requests; manual marking shipped, see §8 |
+| 18 | Attendance sessions: create & track | Admin, Staff | Must | Manual marking plus **auto-excuse from an approved Request — built**, in the write path from both directions (on approval, and on session creation). See §8, "Approvals & triage" |
 | 19 | Grant Finance access to a specific Staff member | Admin only | Must | Access is individually granted, not automatic by sub-role |
 | 20 | Finance Record: create | Admin, Staff (with Finance access) | Must | Always inserted `pending`; status is never taken from the caller. Corrections are new rows via `corrects_id` |
 | 21 | Finance Record: approve/confirm | Admin only | Must | **A single Admin, not a quorum** — one `approved_by` column. No reject: a wrong entry is corrected, not refused. Needed `005` — no UPDATE policy existed, see §8 |
@@ -312,19 +313,105 @@ These came out of implementing the Attendance screen in `bauhaven-admin-web`.
   link, and switching sessions re-fetches server-side — a different session can mean a
   different program and therefore a different list of students.
 
-- **Auto-excuse from an approved absence Request (feature #18's dependency) is not built.**
-  The Requests approval flow doesn't exist in Admin, so there is no approved-absence state to
-  derive anything from. *(Updated: `bauhaven-academy-web` now writes `requests` — students can
-  submit absence requests, and Staff/Admin can read them, since `requests_select` covers them.
-  What's still missing is the deciding half, and it's blocked in the database as well as in the
-  UI: `requests` has no UPDATE policy for anyone, so no row can leave `'pending'`, and
-  `request_approvals` has no INSERT policy, so no approver row can be created. See the Academy
-  spec's "Requests" section for the full shape of the gap.)* All three statuses are set manually by Staff/Admin. Building
-  half of Requests to fill the gap was rejected as worse than leaving it visibly absent; the
-  gap is marked with `TODO(requests)` in `src/lib/schemas/attendance.ts` and at the roster
-  query in `src/app/(app)/attendance/page.tsx`. When it lands, the auto-excuse belongs in the
-  **read** path as a derived default for students with no record yet — a Staff override is
-  then just an ordinary mark, and the append-only chain already makes the override win.
+- **Auto-excuse from an approved absence Request (feature #18) — built.** *(This bullet
+  previously read "not built", and recorded that when Requests landed the auto-fill would
+  belong in the **read** path as a derived default. It went in the **write** path instead.
+  Both the change and the reasoning that led to it are in "Approvals & triage" below;
+  keeping the original prediction visible matters because the read-path version is what a
+  future reader would otherwise expect to find.)*
+
+### Approvals & triage — decisions made while building the screens
+
+These came out of implementing `/requests` (absence approvals) and `/issue-reports`
+(triage) — the Staff/Admin halves of two features Academy-web had built submission-only,
+plus the connection Attendance had been waiting on.
+
+- **Both needed `008_request_approval_rls.sql` first — Requests did, anyway.** `requests`
+  had SELECT and INSERT and nothing else, and `request_approvals` had SELECT and UPDATE but
+  no INSERT: no request could leave `'pending'` by any route, and no approver row could be
+  created to decide it with. Issue reports needed nothing — `issue_reports_update` was
+  already `using (auth_is_admin_or_staff())`, which is why triage was described as
+  buildable-today and turned out to be.
+
+- **The quorum rule is a pure function, not inline logic.** `src/lib/approval-quorum.ts`,
+  with 28 unit tests and no database or UI in sight. It returns one of three shapes rather
+  than a flat list of approver ids, because the rule genuinely has two structures:
+  `any-one` (one approval from a pool, nobody specified) and `all-of` (a specific,
+  enumerable set, all of whom must sign). The single-Admin auto-approve falls **out** of
+  the rule rather than being bolted on — zero other Admins is an empty unanimous set, which
+  is satisfied by definition.
+
+- **`request_approvals` rows are created lazily, on first view.** Nothing creates them at
+  submission (Academy deliberately left that alone), and for the `any-one` cases the
+  approver is genuinely undetermined until somebody picks it up: nothing in the schema
+  routes a request to a named Staff member. So opening the queue makes the viewer the
+  approver of record, which is the honest model rather than a shortcut. A background job
+  seeding rows would have to *invent* an assignee for those cases and would create rows for
+  Staff who never look. Under `all-of` the set is knowable without a viewer, so opening the
+  queue creates a row for every other Admin at once. The table's
+  `unique (request_id, approver_id)` makes the repeat-on-every-view safe, and a `23505` is
+  treated as the constraint doing its job rather than an error.
+
+- **Two judgement calls on outcomes, both stated rather than assumed.** A rejection is
+  decisive under `all-of` (one "no" means unanimity is unreachable, so leaving it in
+  everyone's queue helps nobody) *and* under `any-one` (a second Staff member overturning a
+  colleague's rejection would make the outcome depend on who clicked last).
+
+- **Where the quorum is enforced, and where it isn't.** The database enforces what it can
+  express cleanly: only Admin/Staff create approver rows, nobody is an approver of their own
+  request, only a listed approver moves the status, and only `status` is writable on
+  `requests`. The tier rule itself — Staff for a User, Admin for a Staff member — lives in
+  the application. The residual gap is written into `008` rather than left implicit: a Staff
+  member could be listed on a *Staff* colleague's request by a client that ignored the rule.
+  Closing it needs a `security definer` quorum helper, and the migration says when that
+  becomes worth doing (a second client — Admin-native at M4).
+
+- **Auto-excuse writes real records, and runs from both directions.** Approving marks every
+  session in the request's range; **creating a session** marks anyone whose approved absence
+  already covers that date. The second half is not an optimisation — absences are normally
+  approved in advance and sessions created on the day, so an approval-time-only
+  implementation would have found no sessions to mark in the common case and the feature
+  would have looked built while doing nothing.
+
+- **Write path, not read path — a change from what the Attendance note predicted.** Writing
+  means the excuse is a fact every client sees identically (Academy's student view reads the
+  same table), it lands in the audit trail with a timestamp instead of being recomputed each
+  render, and a Staff override stays exactly what the original note wanted: another row on
+  the append-only chain, winning because it supersedes. The cost is that it's a snapshot —
+  a request approved for dates whose sessions are later *deleted and recreated* wouldn't
+  re-excuse. That's the trade, and the two-directional trigger is what keeps it narrow.
+
+- **An `absent` mark is corrected; a `present` mark is never overridden.** The first is the
+  whole point — a student marked absent before their approval came through must end up
+  excused, via a `corrects_id` row since `attendance_records` has no UPDATE policy. The
+  second is a genuine contradiction between two true-looking records: overriding erases a
+  first-hand observation in favour of a plan made in advance, and overriding the *request*
+  silently narrows an approval a human granted. Neither is the machine's call, so both stand,
+  it's logged, and the approver is told on screen — they're the one who can go and find out.
+
+- **Issue-report triage is a flat list with a category filter, because that's all the schema
+  backs.** The Core spec's "issue reports route to Staff by category" was checked against the
+  migrations and is not implemented: "category" appears in exactly two places in the whole
+  schema — the column (`text not null default 'general'`, no check constraint) and the index
+  `idx_issue_reports_status_category`. No category→staff mapping table exists, and
+  `issue_reports_select`/`_update` have **no category arm**, so any Admin or Staff member
+  reads and resolves any report. Building a routed assignment queue would have promised an
+  ownership nothing enforces. Filter categories are collected from the data rather than
+  hardcoded, precisely because the column has no constraint.
+
+- **No resolution note, because there is no column for one.** `issue_reports` carries
+  `resolved_by` and `resolved_at` and no text field. Writing a note into `description` would
+  overwrite the reporter's own words with the responder's.
+
+- **`resolved_by`/`resolved_at` are stamped only on `resolved`.** A report moved to
+  `in_progress` hasn't been resolved by anyone, and stamping it then would quietly redefine
+  the columns as "last touched".
+
+- **Neither link is hidden the way Finance is.** Finance is the one module gated per person;
+  approving and triaging are part of both Admin's and Staff's jobs, so the links are visible
+  to both and it's the *quorum* that decides which requests each can act on. A request the
+  viewer can't decide is still listed, marked "Waiting on someone else" — hiding it would
+  make the queue look empty while people wait.
 
 ### Tasks — decisions made while building the screen
 

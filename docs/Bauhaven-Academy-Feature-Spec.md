@@ -457,7 +457,7 @@ unbuilt screen in its wireframe.
   `error.tsx` rather than rendered as a blank profile. A failed *roles* read is not fatal by
   contrast: the name, email and language toggle are all still true and useful without it.
 
-### Four open threads, all pointing at the same missing surface
+### Four open threads, all pointing at the same missing surface *(three now closed)*
 
 Worth raising before Academy-web's remaining scope (Profile) gets built further
 ahead of Admin-web. These are not three unrelated TODOs — they're one absent
@@ -465,19 +465,20 @@ ahead of Admin-web. These are not three unrelated TODOs — they're one absent
 
 | Thread | Where it's blocked | Needs a migration? |
 | --- | --- | --- |
-| **Requests approval** | No screen; and `requests` has no UPDATE policy, `request_approvals` no INSERT | **Yes** — and the quorum rule and approver-routing have to be designed first |
-| **Attendance auto-excuse** (Admin-web feature #18) | No approved-absence state exists to derive from | No — unblocked by the above |
-| **Issue Reports resolution** | No screen only | **No** — `issue_reports_update` already exists |
-| **Testimony curation** | No screen; and `testimonies` has no UPDATE policy | **Yes** — a one-line policy, with no design question attached |
+| ~~**Requests approval**~~ **Built** | — | Done: `008_request_approval_rls.sql`, quorum as a pure function, approver rows created lazily on first view |
+| ~~**Attendance auto-excuse**~~ **Built** | — | Done: real `excused` records written on approval *and* on session creation; an `absent` mark is corrected, a `present` one never overridden |
+| ~~**Issue Reports resolution**~~ **Built** | — | Done: flat list with a category filter at `/issue-reports`, no migration needed as predicted |
+| **Testimony curation** | No screen; and `testimonies` has no UPDATE policy | **Yes** — a one-line policy, no design question attached. **The one still open.** |
 
-The order follows from the table: Issue Reports triage is buildable **today** against
-existing policies; Testimony curation needs only a one-line UPDATE policy with no design
-question attached; Requests approval needs a design decision *and* a migration before any
-UI; and Attendance's auto-excuse falls out of Requests approval for free. Academy-web now
-has four student-facing submission flows (tasks, absence requests, issue reports,
-testimonies) whose staff-facing halves are all missing — students can put things into the
-system faster than anyone can take them out, and `bauhaven-academy-web`'s M3 scope is
-otherwise complete except for Profile.
+**Update — three of the four are built.** Admin-web's Approvals & triage work delivered
+issue-report resolution, absence-request approval (with the quorum rule and
+`008_request_approval_rls.sql`) and the attendance auto-excuse that fell out of it, in
+that dependency order. **Testimony curation is the one that remains**, and it is still the
+cheapest of the four: a single UPDATE policy on `testimonies` gated on
+`auth_is_admin_or_staff()`, then a screen. It was left out of that pass deliberately —
+curation is an editorial workflow feeding the public Site, not an approval queue, and it
+sits behind the deferred consent question in the Project Brief's "Known open items", which
+is worth settling in the same pass rather than before it.
 
 ## 8. Confirmed decisions
 

@@ -20,7 +20,7 @@ Recommended sequence: **Admin-web → Academy-web → Admin-native → Academy-n
 |---|---|---|
 | M0 | Core: schema + RLS | ✅ Done — tested against live Postgres with seeded accounts, one recursion bug found and fixed |
 | M1 | Admin-web: scaffolded, real Supabase connection, one working screen (Dashboard) | `next build` clean, Dashboard reads real data from a dev Supabase project, auth redirect works |
-| M2 | Admin-web: MVP feature set | ⚠️ **Named scope met; two open items before M3** — Programs, Applications, Tasks, Attendance, Finance, Assets and the Content editor all ship with loading/empty/error/success states. See "M2 close-out" below |
+| M2 | Admin-web: MVP feature set | ⚠️ **Named scope met; one open item** — Programs, Applications, Tasks, Attendance, Finance, Assets and the Content editor all ship with loading/empty/error/success states. See "M2 close-out" below |
 | M3 | Academy-web: MVP feature set | ⚠️ **Every screen built; one named gate item outstanding.** Dashboard, Tasks, Attendance, Requests, Issue reporting, Testimony and Profile all ship with loading/error/success states, and Academy-web's wireframe now has no unbuilt screen. The **profile switcher** is the gap — Profile lists active roles read-only, and switching which role a session acts as still needs an "acting as" concept that doesn't exist. ~~Attendance (with offline-tolerant queue on the client)~~ — corrected during the Attendance build: web gets best-effort caching only, and the Drift-backed queue is M5's, per `Bauhaven-Architecture-Plan.md` §3. See "M3 close-out" below |
 | M4 | Admin-native: MVP | Home, Approvals (finance/applications/requests), Finance, Attendance (read-mostly), Assets — matching the deliberately-scoped-down wireframe, not full Admin-web parity |
 | M5 | Academy-native: MVP | Full parity with Academy-web's screens, plus real Drift-backed offline attendance check-in and FCM push for deadlines |
@@ -52,7 +52,7 @@ Every screen M2 names is built, each with real loading, empty, error and success
 
 **Two items are open, and neither is Phase 2 work hiding behind the roadmap:**
 
-1. **Admin's sidebar links to `/issue-reports`, which doesn't exist.** Feature #30 ("Resolve IssueReport, routed by category", Admin/Staff, **Must**) is unbuilt. It isn't named in M2's gate list, and Phase 1 assigns issue *reporting* to Academy (M3) — but *resolving* one is Admin's job and the nav already promises it. Clicking it 404s today. Decide before M3 whether it belongs in M2's scope or moves to a milestone of its own; leaving a Must feature reachable-but-missing is the worst of the three options.
+1. ~~**Admin's sidebar links to `/issue-reports`, which doesn't exist.**~~ **Resolved.** Feature #30 is built, alongside absence-request approvals at `/requests` — the two Staff-side halves of features Academy-web had shipped submission-only. Both are in M2's module list in spirit rather than by name, and building them here rather than deferring was the right call for the reason originally recorded: a Must feature reachable-but-missing is the worst of the three options, and Academy was by then producing rows nobody could act on.
 
 2. **Admin's sidebar links to `/blog`, which doesn't exist and shouldn't yet.** Blog is Phase 2 by the Architecture Plan's roadmap, so *not building it* is correct — the defect is the link, not the absence. Either remove it from the nav until Phase 2 or render an explicit "coming in Phase 2" placeholder; a 404 is neither.
 
