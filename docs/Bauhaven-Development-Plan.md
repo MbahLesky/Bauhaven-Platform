@@ -106,6 +106,13 @@ existed since `001` with a policy and no reader or writer.
 
 **Now:**
 
+0b. **Undoing a seed** — `supabase/seed/003_remove_accounts.sql` hard-removes accounts:
+   auth user, identity, roles, and everything they own. It previews first, and **refuses**
+   when the person owns data other people depend on (an attendance session holds the whole
+   class's register; feedback belongs to the student it was written for) — archiving is the
+   right tool there, and the Core spec always said so. For real people, archive; this is for
+   seeded and demo accounts.
+
 0. **Or seed accounts directly** — `supabase/seed/002_seed_accounts.sql` creates working
    sign-in accounts (auth user, password, role, enrolment) in one statement each, for
    development, testing and demos. It's the fast path, not the normal one: whoever runs it
