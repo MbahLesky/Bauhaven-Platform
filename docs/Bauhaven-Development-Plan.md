@@ -106,6 +106,13 @@ existed since `001` with a policy and no reader or writer.
 
 **Now:**
 
+0. **Or seed accounts directly** — `supabase/seed/002_seed_accounts.sql` creates working
+   sign-in accounts (auth user, password, role, enrolment) in one statement each, for
+   development, testing and demos. It's the fast path, not the normal one: whoever runs it
+   chooses the passwords and therefore knows them. Verified against a real Postgres 16
+   instance — bcrypt hash, `auth.identities` row, `handle_new_user()` trigger, and
+   re-running without duplicating.
+
 1. **First Admin** — `supabase/seed/001_first_admin.sql`, run once. Create the auth account
    in the Supabase dashboard (the `on_auth_user_created` trigger makes the `public.users`
    row), then run the script to grant `admin`. This step is genuinely unavoidable: only an
