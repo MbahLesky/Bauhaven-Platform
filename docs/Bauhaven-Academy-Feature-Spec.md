@@ -57,10 +57,10 @@ All modeled as `UserRole` rows in Core — a person can hold more than one of th
 | 8 | View Feedback/grades on Submission | Intern, Student | Must | |
 | 9 | Submit attendance (check-in) | All | Must | **Web: online-only**, plain error + retry on failure. Cache-and-queue is the *native* client's capability (Drift) — see `Bauhaven-Architecture-Plan.md` §3 and §8, "Attendance" |
 | 10 | View attendance statistics | All | Must | |
-| 11 | Submit absence/unavailability Request | All | Must | Entity owned by Core, submitted here. **Submission built; approval doesn't exist yet and is blocked by missing RLS — see §7, "Requests"** |
+| 11 | Submit absence/unavailability Request | All | Must | Entity owned by Core, submitted here. **Both halves built.** Submission here; approval in Admin-web at `/requests`, with the quorum rule and `008_request_approval_rls.sql` — see §7, "Requests" |
 | 12 | View performance summary | All | Must | Confirmed to include Holiday-makers |
 | 13 | Submit Testimony | Intern, Student, Holiday-maker | Should | **Submission built; no curation screen exists and `testimonies` has no UPDATE policy — see §7, "Testimonies"** |
-| 14 | Report an issue | All | Must | **Submission built; no Staff triage/resolution screen exists anywhere — see §7, "Issue reports"** |
+| 14 | Report an issue | All | Must | **Both halves built.** Submission here; Staff triage in Admin-web at `/issue-reports` — a flat list with a category filter, no migration needed. See §7, "Issue reports" |
 | 15 | Add Blog post (pending approval) | All | Could | Shared with Admin/Site |
 
 ## 5. Out of scope — v1
@@ -191,8 +191,38 @@ roster marking.
   screen shows the session's date instead.
 
 - **Sessions are the one thing RLS doesn't scope.** `attendance_sessions_select` is
-  `using (true)`, so every authenticated user can read every session. Unlike `tasks` or
-  `attendance_records`, this query genuinely has to filter by `program_id` itself.
+  `using (true)`, so every authenticated user can read every session. This query genuinely
+  has to filter by `program_id` itself. *(This bullet previously said "unlike `tasks` or
+  `attendance_records`" — see the correction directly below. Sessions are the most
+  unscoped policy, not the only one.)*
+
+- **Corrected during the reconciliation audit: every attendance read now names its subject
+  with `.eq("user_id", …)`.** The queries previously relied on RLS alone, with a comment
+  asserting `attendance_records_select` scopes to `user_id = auth.uid()`. The policy is
+  actually `user_id = auth.uid() **or auth_is_admin_or_staff()**`, and the comment quoted
+  only the first arm.
+
+  For a student that made no difference, which is why it survived review. For anyone holding
+  a Staff or Admin role it returned **every student's records** — and that is an ordinary
+  case, not an exotic one: one login serves the whole platform and a person can hold several
+  roles concurrently (`Bauhaven-Architecture-Plan.md` §6), which is the entire premise of the
+  profile switcher. The failure is not just "too many rows": `resolveRecordsBySession`
+  partitions by session and documents that it expects **one** student's rows, so several
+  students' records collapse to one arbitrary standing record per session. The attendance
+  rate wasn't wide, it was wrong. `checkIn`'s duplicate check had the same shape and would
+  have reported a classmate's row as "you're already checked in", blocking a real check-in.
+
+  **This is scoping a personal view to its subject, not re-implementing authorization.** The
+  policy is correct and stays the authority; the query was asking the wrong question. That's
+  the same call `testimony-queries.ts` and `profile-queries.ts` had already made — and
+  `Bauhaven-Coding-Standards.md`'s "don't duplicate permission logic in the client" is about
+  deciding *who may*, which this doesn't touch. Regression test:
+  "ignores a classmate's record for the same session".
+
+  **Still open, deliberately:** `task-queries.ts`, `request-queries.ts` and
+  `issue-report-queries.ts` have the identical shape and were left alone, because each
+  states the opposite decision in its own comment rather than having overlooked it. Settling
+  that convention across all four is a decision, not a cleanup — see the audit's findings.
 
 ### Requests — decisions made while building the screen
 
@@ -255,16 +285,28 @@ These came out of implementing the absence-request screen (feature #11) in
   a User's request to one *Staff* approval, not to a named person. So the screen cannot
   promise a specific individual.)*
 
-**Two-sided gap, for whoever picks up Requests-approval next.** Both halves are open and
-they're the same feature:
-1. *This side* — no approval screen exists anywhere (Admin-web's feature list has skipped
-   it), and the RLS above has to land before one can work.
-2. *Admin-web's Attendance* — feature #18's auto-excuse from an approved absence Request is
-   marked `TODO(requests)` in `src/lib/schemas/attendance.ts` and at the roster query,
-   because there was no approved-absence state to derive from. Approvals landing is what
-   unblocks it, and the Admin spec's Attendance section already records where the auto-excuse
-   belongs when it does (the **read** path, as a derived default for students with no record
-   yet, so a Staff override stays an ordinary mark).
+**Two-sided gap — both halves now closed.** *(This section recorded a prediction while the
+approval side was unbuilt. It is kept, corrected, because the prediction was wrong in a way
+worth seeing: the auto-excuse went into the **write** path, not the read path.)*
+
+1. ~~*This side* — no approval screen exists anywhere.~~ **Built** in Admin-web at
+   `/requests`, on top of `008_request_approval_rls.sql`. The quorum rule is a pure function
+   with unit tests (`src/lib/approval-quorum.ts`); `request_approvals` rows are created
+   lazily on first view, since nothing in the schema routes a request to a named approver.
+2. ~~*Admin-web's Attendance* — feature #18's auto-excuse is marked `TODO(requests)`.~~
+   **Built, and no `TODO(requests)` remains in Admin-web** — the remaining mentions of that
+   marker are all past-tense narration of how it was closed.
+
+   **It landed in the write path, not the read path this section predicted.** Approving a
+   request inserts real `excused` `attendance_records` rows, and creating a session marks
+   anyone whose approved absence already covers that date — the second direction is
+   load-bearing, because absences are normally approved *before* the session exists, so an
+   approval-time-only implementation would have found nothing to mark in the common case.
+   Writing rather than deriving means every client sees the same fact, it lands in the audit
+   trail with a timestamp, and a Staff override stays an ordinary correction on the
+   append-only chain. An `absent` mark is corrected; a `present` mark is never overridden —
+   that contradiction is logged and reported to the approver instead. Full reasoning in
+   `Bauhaven-Admin-Feature-Spec.md` §8, "Approvals & triage".
 
 ### Issue reports — decisions made while building the screen
 
