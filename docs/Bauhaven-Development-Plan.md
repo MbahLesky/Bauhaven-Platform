@@ -58,7 +58,7 @@ Every screen M2 names is built, each with real loading, empty, error and success
 
 Both are one-line product calls rather than engineering work, which is why they're recorded here instead of being decided unilaterally during the Content Editor build.
 
-**Also deferred, correctly, with the reasoning already written down:** Services (#6, not in M2's list), Projects and task deletion (#14/#15), Attendance's auto-excuse (blocked on Requests, a Phase 2 entity), the Application→Enrollment handoff (blocked on Invitations, likewise), financial analysis (#23, Phase 2), and per-entry portfolio revalidation (needs a `slug` column on `portfolio_entries` — an M6 prerequisite, see the Architecture Plan).
+**Also deferred, correctly, with the reasoning already written down:** Services (#6, not in M2's list), Projects and task deletion (#14/#15), Attendance's auto-excuse (blocked on Requests, a Phase 2 entity), ~~the Application→Enrollment handoff (blocked on Invitations)~~ **— now built; see "Onboarding" below**, financial analysis (#23, Phase 2), and per-entry portfolio revalidation (needs a `slug` column on `portfolio_entries` — an M6 prerequisite, see the Architecture Plan).
 
 
 ## M3 close-out — Academy-web
@@ -92,6 +92,48 @@ Requests, Report a problem, Share feedback, Profile. Four gates clean (`tsc`, `b
 `public.users` from `auth.users` without a `supabase.auth.updateUser` flow), and profile
 photo upload has no storage bucket to upload to. Both are recorded in the Academy Feature
 Spec rather than half-built.
+
+
+## Onboarding — how an account comes into existence
+
+Worth its own section because for most of this project's life the answer was "by hand",
+and nothing said so.
+
+**Before:** neither app had a signup route, `user_roles_write` is Admin-only, and a
+brand-new user is nobody — so every account, from the first Founder to every student,
+needed a Supabase dashboard visit plus a direct SQL insert bypassing RLS. `invitations` had
+existed since `001` with a policy and no reader or writer.
+
+**Now:**
+
+1. **First Admin** — `supabase/seed/001_first_admin.sql`, run once. Create the auth account
+   in the Supabase dashboard (the `on_auth_user_created` trigger makes the `public.users`
+   row), then run the script to grant `admin`. This step is genuinely unavoidable: only an
+   existing Admin can grant a role, so somebody has to insert the first one with a
+   credential that bypasses RLS. The script exists so that's reviewed and repeatable rather
+   than remembered.
+
+2. **Everyone else** — Admin-web's **People** screen (`/users`). Invite by email and role;
+   Staff may invite learners only, Admins may invite anyone. The link is shown to the
+   sender rather than emailed, because no mail provider is configured on this project and
+   claiming otherwise would be a lie.
+
+3. **Students from the public funnel** — approving an Application issues the invitation
+   automatically, carrying the program, so accepting creates the account *and* the
+   enrolment. That's the Application→Enrollment handoff.
+
+4. **Accepting** — `/invite/[token]`, in **both** apps: Staff and Admin invitations open
+   Admin-web, learner invitations open Academy. The invitee sets their own password; the
+   role comes from the invitation, never the form.
+
+Needed `009_invitations_and_onboarding.sql`, which also closed a privilege escalation: the
+original `invitations_admin_staff` policy let a Staff member invite somebody as an **admin**
+— granting through the invitation path a role they cannot grant directly.
+
+**Still open here:** an email provider (so invitations send themselves), and a
+password-reset flow — there is currently no way for someone who forgets a password to
+recover it without an Admin. Both are deployment/configuration work rather than schema
+work, and both are worth doing before real users are onboarded at any scale.
 
 ## What's explicitly not in scope for the MVP milestones above
 
