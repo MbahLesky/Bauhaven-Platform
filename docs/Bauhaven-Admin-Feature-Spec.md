@@ -322,7 +322,19 @@ These came out of implementing the Attendance screen in `bauhaven-admin-web`.
 
 ### Who can open Admin-web at all
 
-- **A role gate sits in `(app)/layout.tsx`, covering every screen at once.** Middleware
+- **Refused at sign-in, not after landing.** `signIn` checks `user_roles` immediately
+  after `signInWithPassword` succeeds and, for an account holding neither Admin nor Staff,
+  **ends the session it just created**. No Admin session cookie survives the call for
+  somebody who can't use it — which matters more than the message, since a session that
+  exists is a session that can be replayed. Fails closed: an unverifiable role signs the
+  session out too.
+
+- **The refusal is not an error.** Their password was right. "Invalid email or password"
+  would have somebody resetting a working password over a problem that isn't theirs, so
+  the login screen replaces the form with "This is the staff app", a link to Academy, and
+  a way back to try another account.
+
+- **A second gate sits in `(app)/layout.tsx`, covering every screen at once.** Middleware
   guarantees a *session*, and that was the only gate — but one Supabase Auth instance
   serves both apps (`Bauhaven-Architecture-Plan.md` §6), so a student's session is
   perfectly valid on Admin's origin. Requests, Issue reports and People each checked
@@ -333,7 +345,9 @@ These came out of implementing the Attendance screen in `bauhaven-admin-web`.
   a student underneath that, so nothing was writable. Still wrong: an intern could read
   the applicant queue and the enrollment list.
 
-- **The gate is in the layout, not in middleware.** Resolving a role needs a `user_roles`
+- **The layout gate stays, because sign-in isn't the only way to hold a session.** A role
+  can be revoked while someone is signed in, and the invite flow creates sessions without
+  touching this form. The layout gate is in the layout rather than middleware because Resolving a role needs a `user_roles`
   read and middleware runs on every request including static assets. `getCurrentUser` is
   wrapped in React's `cache`, so one query per render pass covers the layout and every
   page that re-checks it.
