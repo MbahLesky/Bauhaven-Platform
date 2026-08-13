@@ -109,6 +109,30 @@ A deployment following `.env.example` gets working content and broken forms.
 
 ---
 
+## Update: the forms are reconciled, the content is not
+
+Since this was written, all three of the Site's forms have been brought onto the
+platform's schema:
+
+- `applications` — `010_applications_public_intake.sql`
+- `contact_messages`, `website_reviews` — `011_public_site_forms.sql`, which is where they
+  now exist for the first time. They had been in **no migration at all**: hand-created from
+  the Site's setup doc, or never created and both forms silently failing.
+
+`011` also declined to carry over a policy the Site's setup doc proposed —
+`for select using (true)` on both tables. The anon key ships in a public marketing site's
+browser bundle, so that would have let anyone read every contact message and review,
+including names, emails and phone numbers given privately. Public **insert** only; reading
+is Admin/Staff.
+
+One thing worth carrying into a decision that's still open: `website_reviews` has an
+`allow_public_use` consent flag, because the Site's review form asks. `testimonies` has no
+such thing — consent there is the Project Brief's explicitly deferred item. **The public
+site already solved the question the platform postponed**, and that column is the
+precedent when it's finally settled.
+
+**The content layer below is still entirely unreconciled.** Forms were the easy half.
+
 ## The urgent question: is it even the same database?
 
 **This cannot be answered from the repositories, and everything above depends on it.**
