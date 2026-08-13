@@ -320,6 +320,30 @@ These came out of implementing the Attendance screen in `bauhaven-admin-web`.
   keeping the original prediction visible matters because the read-path version is what a
   future reader would otherwise expect to find.)*
 
+### Who can open Admin-web at all
+
+- **A role gate sits in `(app)/layout.tsx`, covering every screen at once.** Middleware
+  guarantees a *session*, and that was the only gate — but one Supabase Auth instance
+  serves both apps (`Bauhaven-Architecture-Plan.md` §6), so a student's session is
+  perfectly valid on Admin's origin. Requests, Issue reports and People each checked
+  `isAdmin || isStaff` for themselves; Programs, Applications, Enrollment, Attendance,
+  Assets and the Dashboard did not, and were readable by any signed-in account.
+
+- **Disclosure, not tampering.** Every Server Action re-checks the caller and RLS refuses
+  a student underneath that, so nothing was writable. Still wrong: an intern could read
+  the applicant queue and the enrollment list.
+
+- **The gate is in the layout, not in middleware.** Resolving a role needs a `user_roles`
+  read and middleware runs on every request including static assets. `getCurrentUser` is
+  wrapped in React's `cache`, so one query per render pass covers the layout and every
+  page that re-checks it.
+
+- **It shows "wrong app", not a 404 and not a bounce to `/login`.** Their credentials are
+  valid — sending them back to a login form invites them to type the same correct password
+  again and conclude it's broken. The screen says the account is fine, links to Academy,
+  offers sign-out, and names who grants a Staff role. Pages keep their own checks: a
+  layout gate is not a reason to remove defence in depth.
+
 ### Approvals & triage — decisions made while building the screens
 
 These came out of implementing `/requests` (absence approvals) and `/issue-reports`
