@@ -67,6 +67,13 @@ begin
       -- Set deliberately: with email confirmation switched on, an unconfirmed account
       -- cannot sign in, and a seeded account has no inbox to confirm from.
       email_confirmed_at,
+      -- **These must be empty strings, not NULL.** GoTrue reads them into non-nullable Go
+      -- strings, so a NULL makes the row fail to load *before* the password is checked —
+      -- sign-in fails with "Database error querying schema" while the account looks
+      -- perfectly healthy in the dashboard. Accounts created through the dashboard or the
+      -- API get '' here; a hand-written insert has to do the same. Some Supabase versions
+      -- default these to '' and some don't, so they're named explicitly.
+      confirmation_token, recovery_token, email_change, email_change_token_new,
       raw_app_meta_data, raw_user_meta_data, created_at, updated_at
     ) values (
       '00000000-0000-0000-0000-000000000000',
@@ -77,6 +84,7 @@ begin
       -- bcrypt, the same algorithm GoTrue uses, so the sign-in check matches.
       crypt(p_password, gen_salt('bf')),
       now(),
+      '', '', '', '',
       '{"provider":"email","providers":["email"]}'::jsonb,
       jsonb_build_object('name', p_name),
       now(),
@@ -101,6 +109,11 @@ begin
     update auth.users
     set encrypted_password = crypt(p_password, gen_salt('bf')),
         email_confirmed_at = coalesce(email_confirmed_at, now()),
+        -- Repairs a row seeded before this was fixed, so re-running 002 is also the cure.
+        confirmation_token = coalesce(confirmation_token, ''),
+        recovery_token = coalesce(recovery_token, ''),
+        email_change = coalesce(email_change, ''),
+        email_change_token_new = coalesce(email_change_token_new, ''),
         raw_user_meta_data = coalesce(raw_user_meta_data, '{}'::jsonb) || jsonb_build_object('name', p_name),
         updated_at = now()
     where id = v_user_id;
