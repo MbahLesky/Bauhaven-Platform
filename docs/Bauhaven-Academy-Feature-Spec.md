@@ -61,6 +61,7 @@ All modeled as `UserRole` rows in Core — a person can hold more than one of th
 | 12 | View performance summary | All | Must | Confirmed to include Holiday-makers |
 | 13 | Submit Testimony | Intern, Student, Holiday-maker | Should | **Submission built; no curation screen exists and `testimonies` has no UPDATE policy — see §7, "Testimonies"** |
 | 14 | Report an issue | All | Must | **Both halves built.** Submission here; Staff triage in Admin-web at `/issue-reports` — a flat list with a category filter, no migration needed. See §7, "Issue reports" |
+| 16 | Sign up, which files an application | Prospective applicants | Must | **Built** — `/signup` creates the account and the application together (`012_academy_signup_applications.sql`). Everything above stays behind an enrolment gate until an Admin approves; a pending applicant sees where their application stands, not empty screens. See §7, "Sign-up and the enrolment gate" |
 | 15 | Add Blog post (pending approval) | All | Could | Shared with Admin/Site |
 
 ## 5. Out of scope — v1
@@ -498,6 +499,34 @@ unbuilt screen in its wireframe.
   creates it on sign-up, so its absence means something is wrong — surfaced through
   `error.tsx` rather than rendered as a blank profile. A failed *roles* read is not fatal by
   contrast: the name, email and language toggle are all still true and useful without it.
+
+### Sign-up and the enrolment gate
+
+Academy had **no signup route and no gate** — two facts that only look serious together.
+Every account had to be created by hand or by invitation, and any account that *did* exist
+got the whole app on sight.
+
+- **Signing up is applying.** `/signup` takes name, email, optional phone, programme,
+  optional note and a password, then creates the account and files the application in one
+  action. The programme picker offers real `programs` rows — Academy can read the actual
+  catalogue, unlike the public website's marketing categories — so an approved application
+  already knows the cohort to enrol on.
+
+- **The gate is enrolment, not role.** `(app)/layout.tsx` looks for an active enrolment and
+  otherwise renders where the application stands: being reviewed, passed the first review,
+  approved-but-incomplete, declined, or no application on file. Empty Tasks and Attendance
+  screens would have read as "this is broken" rather than "you're not approved yet", and
+  the person has no way to tell those apart.
+
+- **Approved but still gated is a real state, and it says so.** Approval writes three
+  things — the status, the role, the enrolment — and nothing makes them atomic. If the
+  last two don't land, the applicant is told the place hasn't finished setting up rather
+  than being shown a "we're reviewing it" that is no longer true; the reviewer gets the
+  matching warning on the Admin side against the row they just approved.
+
+- **A decline keeps the account.** They can apply again for another programme or a later
+  intake. `idx_applications_one_open_per_applicant` is partial over the open statuses
+  precisely so that a decline reopens the door.
 
 ### Four open threads, all pointing at the same missing surface *(three now closed)*
 

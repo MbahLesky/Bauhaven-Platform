@@ -181,6 +181,8 @@
         <div class="quick-action" onclick="showScreen('report')"><div class="qa-icon"></div>Report<br>an issue</div>
         <div class="quick-action" onclick="showScreen('testimony')"><div class="qa-icon"></div>Share<br>feedback</div>
       </div>
+      <div class="note"><b>Nobody reaches this screen before an Admin approves them.</b> Academy now has its own sign-up, and signing up <i>is</i> applying — see <a href="#" onclick="showScreen('signup'); return false;">Sign up</a> and <a href="#" onclick="showScreen('pending'); return false;">Waiting for approval</a>. Until an enrolment exists, the whole app is replaced by the pending screen: an unapproved applicant seeing empty Tasks and Attendance would read it as broken rather than as not-yet-approved, and has no way to tell those apart.</div>
+
       <div class="note"><b>All three are now built</b> — Request absence, Report an issue and Share feedback each have a screen. The shipped Home renders them as a three-column grid, with tighter padding and smaller labels than the other cards so three fit at the 360px responsive floor.</div>
 
       <div class="section-title">Due soon</div>
@@ -304,7 +306,7 @@
 
       <div class="note"><b>"Goes to your Programme Manager" was corrected to "Goes to staff".</b> <i>(Correction to this note as first written: <code>programme_manager</code> <b>is</b> a real value — one of <code>user_roles.staff_sub_role</code>'s options, alongside auditor/coordinator/mentor. The earlier claim that no such role exists was wrong.)</i> The change still stands for the real reason: nothing connects a student to a particular programme manager — <code>user_roles.program_id</code> scopes a <i>staff</i> member to a program, with no reverse lookup and no supervisor link — and the quorum rule routes a User's request to <i>one Staff approval</i>, not to a named person.</div>
       <div class="note"><b>Two date fields, not one "6 Aug – 7 Aug 2026" text box.</b> <code>start_date</code> and <code>end_date</code> are separate <code>date</code> columns, and a free-text range is the field that submits "next week" and stores nothing usable. A single-day absence uses the same date twice.</div>
-      <div class="note"><b>The badge shows "Waiting", not "Approved".</b> Approval isn't built — and it's blocked in the database, not just missing a screen: <code>requests</code> has SELECT and INSERT policies and no UPDATE, so no row can leave <code>'pending'</code> by any route. A wireframe showing an approved request implies a state the system currently cannot reach. See the Academy Feature Spec §7, "Requests".</div>
+      <div class="note"><b>The badge shows "Waiting" here, but "Approved" is now reachable.</b> <i>(Updated: when this note was first written, approval was blocked in the database — <code>requests</code> had SELECT and INSERT policies and no UPDATE, so no row could leave <code>'pending'</code> by any route, and showing an approved request would have implied a state the system could not reach.)</i> <code>008_request_approval_rls.sql</code> added the missing policies and Admin-web's <code>/requests</code> is built, with the quorum rule and the attendance auto-excuse that follows from it. This card still shows the waiting state because that is what a student sees for most of a request's life. See the Academy Feature Spec §7, "Requests".</div>
       <div class="note"><b>No cancel or edit control, because there couldn't be one.</b> With no UPDATE or DELETE policy, a student cannot withdraw a request they've sent. A button that always failed would be worse than its absence.</div>
       <div class="note"><b>Reason is required, though the column is nullable.</b> A request with no reason gives the approver nothing to decide on, and there's no comment thread on <code>requests</code> for them to ask a follow-up through. Rendered as a textarea for the same reason — a one-line box invites a three-word answer.</div>
     </div>
@@ -375,6 +377,68 @@
     </div>
 
     <!-- ================= PROFILE ================= -->
+    <!-- ================= SIGN UP ================= -->
+    <div class="screen" id="screen-signup">
+      <h1 class="greeting">Apply to Bauhaven</h1>
+      <p class="greeting-sub">Creating your account files your application</p>
+
+      <div class="list-item" style="flex-direction:column; align-items:stretch; gap:12px;">
+        <div>
+          <div style="font-size:12px; font-weight:600; margin-bottom:6px;">Your name</div>
+          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="Ada Applicant">
+        </div>
+        <div>
+          <div style="font-size:12px; font-weight:600; margin-bottom:6px;">Email</div>
+          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="ada@example.com">
+        </div>
+        <div>
+          <div style="font-size:12px; font-weight:600; margin-bottom:6px;">Phone <span style="font-weight:400; color:#8a8a8a;">Optional</span></div>
+          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="+237 6 77 00 00 00">
+        </div>
+        <div>
+          <div style="font-size:12px; font-weight:600; margin-bottom:6px;">What are you applying for?</div>
+          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="Web Development Bootcamp ▾">
+        </div>
+        <div>
+          <div style="font-size:12px; font-weight:600; margin-bottom:6px;">Why you're applying <span style="font-weight:400; color:#8a8a8a;">Optional</span></div>
+          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="I'd like to learn web development.">
+        </div>
+        <div>
+          <div style="font-size:12px; font-weight:600; margin-bottom:6px;">Choose a password</div>
+          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="••••••••••">
+        </div>
+        <div>
+          <div style="font-size:12px; font-weight:600; margin-bottom:6px;">Type it again</div>
+          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="••••••••••">
+        </div>
+      </div>
+      <button class="btn btn-primary" style="margin-top:8px;" onclick="showScreen('pending')">Apply</button>
+      <p style="font-size:11px; color:#8a8a8a; margin-top:8px;">Applying creates your account. Someone at Bauhaven reviews it, and everything opens up once you're approved.</p>
+
+      <div class="note"><b>The programme picker offers real <code>programs</code> rows</b>, not the public website's marketing categories. <code>programs_select_all</code> is <code>using (true)</code>, so Academy can show the actual catalogue — which means an approved application already names the cohort to enrol on, and approving it writes the enrolment with no second decision to make. The website's form can't do that: its picker offers categories, so a reviewer has to assign the real programme before approving.</div>
+      <div class="note"><b>There is no "already applied?" check on this form.</b> <code>idx_applications_one_open_per_applicant</code> is a partial unique index over <code>status in ('submitted','confirmed')</code> — the database refuses the second open application, which is what closes the double-submit race a form check would leave open. Scoping it to the open statuses is deliberate: a declined applicant can apply again.</div>
+      <div class="note"><b>The account is created before the application, on purpose.</b> A failed application leaves a usable account they can apply from again; an application pointing at an account that doesn't exist isn't recoverable by them at all. And <code>applicant_id</code> comes from the new session rather than the form — an application naming somebody else's account isn't a state the app should be able to produce.</div>
+      <div class="note"><b>Email confirmation is on, so this can end two ways.</b> With confirmation enabled, <code>signUp</code> returns a user but no session. The application is still filed, and the screen says "check your email" rather than showing an error — nothing has gone wrong, the only thing outstanding is a link Supabase has already sent.</div>
+    </div>
+
+    <!-- ================= WAITING FOR APPROVAL ================= -->
+    <div class="screen" id="screen-pending">
+      <div style="text-align:center; padding:28px 0;">
+        <span class="badge warning">Being reviewed</span>
+        <h1 class="greeting" style="margin-top:14px;">Your application is with us</h1>
+        <p class="greeting-sub">Someone at Bauhaven will look at it and get back to you. Once you're approved, everything opens up here — tasks, attendance, and the rest.</p>
+        <p style="font-size:11px; color:#8a8a8a; margin-top:10px;">Web Development Bootcamp · applied 12 Aug 2026</p>
+      </div>
+
+      <button class="btn btn-secondary">Log out</button>
+
+      <div class="note"><b>This replaces the entire app, bottom nav included.</b> The gate is an active <code>enrollments</code> row, checked in the app layout — not a role. Before this existed Academy had no gate at all: any signed-in account got Home, Tasks, Attendance and Profile, all empty.</div>
+      <div class="note"><b>Four states, not one "pending".</b> <i>Being reviewed</i> (<code>submitted</code>); <i>You've passed the first review</i> (<code>confirmed</code> — Staff have read it and only final approval is outstanding, which is different news from "it's in a queue"); <i>You're approved — one step left</i>; and <i>Your account isn't set up yet</i> when there is no application at all, which happens when an Admin created the account by hand or the application insert failed right after sign-up.</div>
+      <div class="note"><b>"Approved — one step left" is a failure state said out loud.</b> Approval writes three things — the status, the role, the enrolment — and nothing makes them atomic. Still being here after approval means one of the last two didn't land. Leaving a "we're reviewing it" message up would be telling somebody something now false; the reviewer gets the matching warning in Admin against the row they just approved.</div>
+      <div class="note"><b>A decline keeps the account.</b> The declined state says so plainly and points at applying again — for another programme or a later intake — rather than dressing up the outcome or deleting the account out from under them.</div>
+      <div class="note"><b>Log out is the only control.</b> There's no app shell around this screen to offer it, and somebody signed into the wrong account would otherwise be stuck.</div>
+    </div>
+
     <div class="screen" id="screen-profile">
       <div class="profile-head">
         <div class="avatar-lg">SS</div>

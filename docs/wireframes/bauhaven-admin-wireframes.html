@@ -540,6 +540,29 @@
           360px floor. Approval is Admin-only and enforced in RLS, the Server Action, and the UI
           independently — see Bauhaven-Admin-Feature-Spec.md §8.
         </div>
+
+        <div class="note">
+          <strong>Approving ends two different ways, and the row doesn't show which.</strong> An
+          application from the public website has no account behind it, so approving issues an
+          invitation and the link appears in place of the buttons — nothing is emailed, so the
+          reviewer is the one who sends it. An application from Academy's sign-up carries an
+          <code>applicant_id</code>, because signing up there <em>is</em> applying; approving
+          grants the <code>student</code> role and writes the enrollment directly, and no
+          invitation is issued — a token sent to an address that already has an account can never
+          be redeemed. Same queue, same statuses, same buttons.
+        </div>
+
+        <div class="note">
+          <strong>A half-completed approval is reported against the row.</strong> The status, the
+          role and the enrollment are three writes with nothing making them atomic, and the row
+          reads "Approved" regardless. A missing role is the serious one — the applicant cannot
+          get past Academy's gate — so it says so and names where to fix it (People, or
+          Enrollment), and waits for the reviewer to dismiss it rather than refreshing the message
+          away. A missing enrollment only counts as a failure when a program was actually
+          assigned: approving without one is a legitimate choice, and Enrollment follows.
+          The approval itself is never rolled back because a follow-on write failed — a second
+          attempt would match zero rows, since the status has already moved.
+        </div>
       </div>
 
       <!-- ================= FINANCE ================= -->
@@ -693,10 +716,17 @@
           <code>md</code> breakpoint these rows become stacked cards.
         </div>
         <div class="note">
-          <strong>Where a new enrollment comes from:</strong> not from an approved Application.
-          <code>enrollments.user_id</code> requires a <code>users</code> row, and an applicant has
-          no account until they sign up — so the chain is Application approved → invited → signs
-          up → enrolled. The invitation step isn't built yet. See Bauhaven-Admin-Feature-Spec.md §8.
+          <strong>Where a new enrollment comes from.</strong> <em>(Updated: this note previously
+          said "not from an approved Application" and that the invitation step wasn't built.
+          Both halves have since changed.)</em> <code>enrollments.user_id</code> still requires a
+          <code>users</code> row, which is why approving an Application cannot always write one
+          directly — but approving now produces the account either way. A public application from
+          the website is approved into an invitation carrying the program, so redeeming it creates
+          the account <em>and</em> the enrollment; an Academy sign-up already has an account, so
+          approving grants the role and writes the enrollment on the spot. This screen stays the
+          only way to enroll somebody who didn't arrive through an application — a returning
+          student, a second program — and the recovery path when an approval's enrollment doesn't
+          land. See Bauhaven-Admin-Feature-Spec.md §8.
         </div>
       </div>
 

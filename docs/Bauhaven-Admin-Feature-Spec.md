@@ -104,10 +104,12 @@ Admin is the consolidated internal back-office — what would otherwise have bee
 - Every module (Courses, Applications, Tasks, Attendance, Finance, Assets, Content) is usable by Admin end-to-end without touching the old apps.
 - Staff only ever see data scoped to their assignment — verified via a permission audit with zero cross-scope leaks in testing.
 - An Application can go from public submission to enrolled Student without manual database work.
-  **Not met as of the Enrollment build.** Approving an Application sets its status; it cannot
-  create an Enrollment, because `enrollments.user_id` requires a `users` row and an applicant
-  has no account until they sign up. The missing link is the invitation/signup step — the
-  `invitations` table exists, nothing is built on it. See §8, "Enrollment".
+  **Met, on both intake paths.** ~~Not met as of the Enrollment build~~ — the missing link was
+  the invitation/signup step, and it is now built twice over. A public application from the
+  website is approved into an invitation (`009`), and redeeming it creates the account, grants
+  the role and enrols them in the program the application named. An Academy sign-up already
+  has an account (`012`), so approving grants the role and writes the enrolment directly. See
+  §8, "Enrollment" and "Applications".
 
 ## 7. Constraints, risks & open questions
 
@@ -137,18 +139,25 @@ Admin is the consolidated internal back-office — what would otherwise have bee
   carries nothing that can populate `enrollments.user_id`.
 
   **The real chain is: Application approved → applicant invited → applicant signs up
-  (`users` row created by the `on_auth_user_created` trigger) → Admin enrols them.** The
-  middle step is what's missing. The `invitations` table exists for exactly it (email,
-  invited_role, token, expires_at) and nothing is built on it yet.
+  (`users` row created by the `on_auth_user_created` trigger) → Admin enrols them.** ~~The
+  middle step is what's missing.~~ **The middle step is now built** — `009_invitations_and_onboarding.sql`
+  plus the accept screen — and redeeming an invitation that carries a `program_id` does the
+  enrolment itself, so the chain runs end to end without anyone opening this screen.
 
   A "Create enrollment" button on an approved Application was deliberately **not** added:
   it would dead-end for any applicant without an account, which is the normal case
   immediately after approval. Better an honest gap than a button that usually fails.
+  **That reasoning still holds, and approval is now what closes the gap** — it issues the
+  invitation, or, for an Academy sign-up whose account already exists, writes the enrolment
+  directly. Neither is a button that can dead-end, because both branch on whether the
+  account is there.
 
-  **Success criterion 3 — "An Application can go from public submission to enrolled
-  Student without manual database work" — is therefore still not met.** The missing piece
-  is the invitation/signup step, not the Enrollment screen. Whoever picks that up should
-  reconcile this section and the Applications one.
+  **This screen is still the only way to enrol somebody who did not arrive through an
+  application** — a returning student, a second programme, an account created by hand —
+  and it stays the recovery path when an approval's enrolment doesn't land.
+
+  ~~**Success criterion 3 is therefore still not met.**~~ **It is met now**, on both intake
+  paths — see §6.
 
 - **The wireframe shows no create control on this screen**; one was added, because
   nothing else in Admin can produce an enrollment and the spec requires Admin to manage
@@ -191,15 +200,39 @@ Admin is the consolidated internal back-office — what would otherwise have bee
   at once produce one decision and one "already actioned" message, not a silent
   overwrite.
 
-- **Reviewing does not create an enrollment.** Approving sets `applications.status` and
-  stamps `reviewed_by`/`reviewed_at`; turning an approved application into an
-  `enrollments` row is Enrollment's job (feature #11, Admin-only) and is not wired up
-  yet. Success criterion 3 — "an Application can go from public submission to enrolled
-  Student without manual database work" — is therefore **not yet met**; it needs the
-  Enrollment screen.
+- ~~**Reviewing does not create an enrollment.**~~ **Approving now finishes the job**, and
+  which way it finishes depends on whether the applicant already has an account. This is the
+  "Application→Enrollment handoff" the Development Plan listed as deferred.
 
-- **The public intake form is not part of this screen.** `applications_insert_public`
-  exists for the Site to write into; Admin only ever reads and updates.
+  - **`applicant_id` is null** — an anonymous application from the public website. Approving
+    issues an invitation carrying the `program_id`, so redeeming it creates the account,
+    grants the role and enrols them in one chain. Nothing is emailed; the reviewer is handed
+    the link, once, before the row settles.
+  - **`applicant_id` is set** — an Academy sign-up, where signing up *is* applying and the
+    account has existed since the application was filed. Approving grants the `student` role
+    and writes the enrolment directly. No invitation is issued: sending one to an address
+    that already has an account produces a token that can never be redeemed.
+
+  The role is `student` on both paths, because `applications` has no role field and nothing
+  in the schema distinguishes an intern application from a student one. It's one click to
+  change in People, which beats inventing a mapping from `programs.type`.
+
+- **A half-completed approval is reported, not swallowed.** The status, the role and the
+  enrolment are three writes with nothing making them atomic, and the row reads "Approved"
+  regardless. A missing role is the serious one — the person cannot get past Academy's gate —
+  so the reviewer is told against the row they just approved, and told where to fix it
+  (People, or Enrollment). A missing enrolment only counts as a failure when a programme was
+  actually assigned: approving without one is a legitimate choice, and Enrollment follows.
+
+- **Approving is never rolled back because the follow-on failed.** An approved application
+  with no invitation, or with no role, is recoverable from People; an approval undone because
+  a second write failed is not, and the reviewer's second attempt would match zero rows
+  because the status has already moved.
+
+- **Two intake paths, one queue.** `applications_insert_public` exists for the Site to write
+  into anonymously; Academy's `/signup` writes one carrying `applicant_id`. Both land in this
+  screen with the same statuses and the same buttons — Admin still only ever reads and
+  updates, and neither form is part of this screen.
 
 - **Submitted times display in `Africa/Douala`**, pinned rather than left to the server's
   timezone, so "Today, 09:12" means the same thing regardless of deploy region.

@@ -51,6 +51,7 @@ Core is the shared backend — and a small set of shared UI components — that 
 | 6 | Profile management (photo, language, contact) | All | Must | |
 | 7 | Profile switcher (when a user has >1 active role) | Multi-role users | Must | Shared component, embedded inside Admin/Academy. **Not built in either app.** Both have working auth as of Academy-web's auth pass; the switcher was deliberately left out of it — see `Bauhaven-Architecture-Plan.md` §6, "Auth as built" |
 | 8 | Invitations (send + accept) | Admin, Staff → invitee | Must | **Built** — needed `009_invitations_and_onboarding.sql`. Send from Admin-web's People screen; accept at `/invite/[token]` in **both** apps. Nothing is emailed (no provider configured) — the link is handed to the sender. See §8, "Onboarding as built" |
+| 8b | Self-signup that doubles as an application | Anyone → Admin | Must | **Built** — needed `012_academy_signup_applications.sql`. Academy's `/signup` creates the account and files the application in one step; approving in Admin grants the role and enrols. No invitation is issued on this path — the account already exists. See §10 |
 | 9 | Announcements (post, scoped to role/group) | Admin, Staff → all | Should | |
 | 10 | Notifications (system-generated: deadlines, approvals) | All | Should | |
 | 11 | Requests: absence/unavailability, with role-based approval (User→1 Staff, Staff→1 Admin, Admin→all other Admins) | All | Must | Approved request auto-marks the matching Attendance session as excused; Staff can override |
@@ -88,7 +89,7 @@ Everything below came out of implementing invitations, user administration, the
 application handoff and the first-admin bootstrap. Before that work, **there was no way to
 create an account except by hand** — in either app, for anyone.
 
-- **The gap was total, not partial.** Neither client has a signup route; `handle_new_user()`
+- **The gap was total, not partial.** Neither client had a signup route (Academy has one now — §10); `handle_new_user()`
   fills in `public.users` on sign-up but grants no role; and `user_roles_write` is
   `using (auth_is_admin())`, so a brand-new user cannot give themselves a role and only an
   existing Admin can give them one. Every account — the first Founder, every Staff member,
@@ -154,6 +155,68 @@ create an account except by hand** — in either app, for anyone.
   and someone who confirmed their email comes back to the same link. The token is the
   credential; middleware doesn't need to guess.
 
-## 10. Assumptions to confirm
+## 10. Self-signup as built
+
+The second intake path, added after invitations. Someone can now create their own Academy
+account, and doing so **is** applying — the account and the application are written
+together, and an Admin approving the application is what turns a dormant account into a
+usable one.
+
+- **Two intake paths, one queue.** The public website's form still files an anonymous
+  application with no account behind it; Academy's `/signup` files one carrying
+  `applicant_id`. Both land in the same Applications screen with the same statuses and the
+  same buttons — only the last step of approval differs, and `applicant_id` is what selects
+  it. Keeping both was a recorded decision: the website is where most applicants first meet
+  Bauhaven, and requiring an account before applying would lose them.
+
+- **Approval branches on `applicant_id`.** An anonymous application still earns an
+  invitation. An Academy sign-up gets the `student` role and the enrolment written directly,
+  because there is nobody to invite — issuing an invitation to an address that already has
+  an account produces a token that can never be redeemed, which is exactly the failure
+  `inviteApprovedApplicant` already refuses to create.
+
+- **Academy has a gate now; before this it had none.** Any signed-in account got the whole
+  app, so a pending applicant would have seen Tasks, Attendance and Requests, all empty.
+  Empty screens read as "this is broken", not "you're not approved yet", and the person
+  can't tell which. `(app)/layout.tsx` checks for an enrolment and otherwise shows where the
+  application stands.
+
+- **Four pending states, not one.** `submitted`, `confirmed`, `approved` and *no application
+  at all* say genuinely different things and are not collapsed into a single "pending"
+  message. `approved` while still behind the gate means the role grant or the enrolment
+  didn't land — approval writes three things and nothing makes them atomic — so that screen
+  says so rather than leaving a now-false "we're reviewing it" up. The same failure is
+  reported to the reviewer on the Admin side, against the row they just approved.
+
+- **A declined application keeps the account.** Recorded decision. They can apply again for
+  another programme or a later intake without starting from nothing, and the declined
+  screen says that plainly rather than dressing up the outcome.
+
+- **One open application per account**, enforced by a partial unique index rather than by
+  the form — `idx_applications_one_open_per_applicant` covers `status in ('submitted',
+  'confirmed')` only, so re-applying after a decline is allowed and anonymous applications
+  are unaffected. Checking in the action instead would leave the double-submit race open.
+
+- **`applications_select` gained an own-row arm.** It was Admin/Staff only, which meant an
+  applicant could not read the application they had just filed — the pending screen would
+  have had nothing to show. The new arm is `applicant_id = auth.uid()`, so it exposes their
+  own row and nothing else.
+
+- **`applicant_id` comes from the new session, never the form.** `signUpAndApply` reads it
+  from the `signUp` result. An application naming somebody else's account wouldn't be
+  escalation — approving it would grant the role to *them* — but it isn't a state the app
+  should be able to produce.
+
+- **The account is created before the application, on purpose.** A failed application leaves
+  a usable account they can apply from again; the reverse — an application pointing at an
+  account that doesn't exist — is not recoverable by them at all. Same ordering, and the
+  same reasoning, as the invitation-acceptance flow.
+
+- **Email confirmation is on.** With it on, `signUp` returns a user but no session. The
+  application is still filed and the outcome is reported as "check your email" rather than
+  as a failure, because nothing has actually gone wrong: the only thing outstanding is a
+  link Supabase has already sent.
+
+## 11. Assumptions to confirm
 
 *(none outstanding — all resolved above)*
