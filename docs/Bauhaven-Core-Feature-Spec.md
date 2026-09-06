@@ -52,6 +52,9 @@ Core is the shared backend — and a small set of shared UI components — that 
 | 7 | Profile switcher (when a user has >1 active role) | Multi-role users | Must | Shared component, embedded inside Admin/Academy. **Not built in either app.** Both have working auth as of Academy-web's auth pass; the switcher was deliberately left out of it — see `Bauhaven-Architecture-Plan.md` §6, "Auth as built" |
 | 8 | Invitations (send + accept) | Admin, Staff → invitee | Must | **Built** — needed `009_invitations_and_onboarding.sql`. Send from Admin-web's People screen; accept at `/invite/[token]` in **both** apps. Nothing is emailed (no provider configured) — the link is handed to the sender. See §8, "Onboarding as built" |
 | 8b | Self-signup that doubles as an application | Anyone → Admin | Must | **Built** — needed `012_academy_signup_applications.sql`. Academy's `/signup` creates the account and files the application in one step; approving in Admin grants the role and enrols. No invitation is issued on this path — the account already exists. See §10 |
+| 8c | Bulk invitations | Admin, Staff → a cohort | Should | **Built** — People → "Invite a group". One role and one programme for a pasted list; every link back at once. Someone already holding an account or an unexpired invitation is skipped and reported, not treated as a failure |
+| 8d | Direct account creation | Admin | Should | **Built** — People → "Create directly", needing `013_admin_create_account.sql`. The Admin sets the password, so the Admin knows it — the deliberate trade against invitations. See §11 |
+| 8e | Password reset | Anyone with an account | Must | **Built** in both apps, and needing no mail provider — Supabase Auth's own mailer sends it. Was a genuine hole: a forgotten password previously required an Admin and a SQL script. See §11 |
 | 9 | Announcements (post, scoped to role/group) | Admin, Staff → all | Should | |
 | 10 | Notifications (system-generated: deadlines, approvals) | All | Should | |
 | 11 | Requests: absence/unavailability, with role-based approval (User→1 Staff, Staff→1 Admin, Admin→all other Admins) | All | Must | Approved request auto-marks the matching Attendance session as excused; Staff can override |
@@ -127,7 +130,11 @@ create an account except by hand** — in either app, for anyone.
   point nobody can grant it back through the app and the fix is the seed script and a
   database credential.
 
-- **Nothing is emailed, and the UI says so.** No mail provider is configured on this project
+- **Nothing is emailed, and the UI says so.** *(Still true of invitations. Password-reset
+  mail is the one exception, and it is not a counterexample: Supabase Auth sends it through
+  its own mailer, which needs no provider. Auth mail and application mail are separate
+  problems, which is why one could ship without the other — see §11.)* No mail provider is
+  configured on this project
   and there is no notification delivery either, so the invitation link is handed to whoever
   created it, to send however they actually reach people — which for Bauhaven is as likely to
   be WhatsApp as email. Claiming an invitation had been "sent" when it was only written to a
@@ -217,6 +224,69 @@ usable one.
   as a failure, because nothing has actually gone wrong: the only thing outstanding is a
   link Supabase has already sent.
 
-## 11. Assumptions to confirm
+## 11. Making accounts easy to create
+
+Everything above made accounts *possible*. This pass made them quick, which is a different
+problem and was blocking real use: adding one person meant a form, a copied link, a message
+sent by hand, and a wait. Twenty people meant twenty of each.
+
+- **A pending invitation's link was recoverable exactly once, and that was a bug.**
+  `getDirectory` already read the token and shipped it to the client; the row rendered only
+  a Revoke button. So closing the panel that first showed a link meant revoking and
+  reissuing — while `CopyLink` was telling Admins "you can copy it again from the list
+  below". The data was there the whole time; the control wasn't.
+
+- **Bulk invitations treat partial success as the normal case.** A real list contains
+  somebody who already has an account and somebody invited last week. Those are reported per
+  address and everyone else is still invited, because refusing the batch would make the
+  Admin edit the list and resubmit — the work the feature exists to remove. Checks are
+  batched into two reads for the whole list rather than two per address.
+
+- **Matching is case-insensitive, and that is not incidental.** `idx_users_email` is unique
+  on the raw column, not on `lower(email)`, so an exact-match lookup would miss an account
+  stored with a capital letter and issue an invitation whose token can never be redeemed.
+  The single-invite path already used `ilike` for this reason; the bulk path had to match it.
+
+- **Direct creation exists, and gives up the thing invitations protect.** `admin_create_account`
+  (013) takes a name, email, password and role and returns an account that signs in
+  immediately. The Admin therefore knows the password, which contradicts the principle §9
+  states outright. Both paths exist because they answer different situations — a link is
+  right for somebody you are emailing and wrong for somebody in the room — and invitations
+  stay the default and the first tab. Admin-only, matching `user_roles_write`.
+
+- **The function refuses an existing email and never updates one.** This is its security
+  boundary, and the one line that separates it from `seed_account`, which resets passwords
+  on re-run. Exposed over PostgREST, that behaviour would let any Admin overwrite any
+  account's password — another Admin's included — and sign in as them, leaving an audit
+  trail that reads like onboarding.
+
+- **The suggested password is words and digits, not symbols and mixed case.** Its entire
+  life is being spoken aloud or typed into a WhatsApp message and re-entered on a phone
+  keyboard. `Tl;dr#8x` is stronger per character and loses on the only axis that matters
+  here: whether it survives the trip. It is shown rather than masked for the same reason.
+
+- **Password reset needed no email provider**, because Supabase Auth's own mailer sends it —
+  the same one already confirming Academy sign-ups. Auth mail and application mail turn out
+  to be separate problems, and only the second one is blocked. Before this, a forgotten
+  password meant an Admin, a SQL editor and `004_repair_seeded_logins.sql`; it was worst for
+  accounts an Admin had created with a password they typed a fortnight earlier — which the
+  direct-creation path above now produces more of.
+
+- **The reset answer is identical whether or not the address has an account**, including
+  when Supabase rate-limits the request. Otherwise the form is a way to ask who works at or
+  studies with Bauhaven — the enumeration problem the sign-in form already avoids.
+
+- **`next` on `/auth/confirm` is restricted to a local path.** It arrives in the query string
+  of a link clicked from an inbox, and the handler mints a session immediately before
+  honouring it: unchecked, that is an open redirect with a fresh session attached, reached
+  from genuine Bauhaven mail. The guard is its own module with its own tests, covering the
+  protocol-relative and backslash forms that slip past a naive `startsWith("/")`.
+
+- **Setting a new password signs the person out.** A recovery session is a session. In
+  Admin-web it would otherwise put somebody inside the app without passing the sign-in role
+  check that turns away non-staff accounts; in Academy it would carry them in on the strength
+  of an email link rather than a password they just proved they know.
+
+## 12. Assumptions to confirm
 
 *(none outstanding — all resolved above)*

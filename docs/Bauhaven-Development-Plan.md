@@ -154,11 +154,29 @@ Needed `009_invitations_and_onboarding.sql`, which also closed a privilege escal
 original `invitations_admin_staff` policy let a Staff member invite somebody as an **admin**
 — granting through the invitation path a role they cannot grant directly.
 
-**Still open here:** an email provider (so invitations send themselves — note that
-Supabase's own mailer already sends the sign-up confirmation, which is a different thing),
-and a password-reset flow — there is currently no way for someone who forgets a password to
-recover it without an Admin. Both are deployment/configuration work rather than schema
-work, and both are worth doing before real users are onboarded at any scale.
+4. **Or an Admin creates the account outright** — People → **Create directly**, Admin only.
+   Name, email, password, role; the account signs in immediately, with nothing to deliver
+   and nothing for the person to set up. For onboarding somebody who is in the room. It
+   trades away the one thing invitations protect — only the invitee knowing their password
+   — so it is the last tab rather than the first, and the screen says so. Needed
+   `013_admin_create_account.sql`, whose defining property is that it **refuses an email
+   that already exists and never updates one**: the same function that reset passwords
+   would be an account-takeover tool the moment an Admin pointed it at another Admin.
+
+5. **Or invite a group** — People → **Invite a group**. Paste a list, one role and one
+   programme for all of them, every link back at once. Somebody already holding an account
+   or an unexpired invitation is reported and skipped rather than failing the batch.
+
+~~**Still open here:** an email provider and a password-reset flow.~~ **Password reset is
+built**, in both apps, and needed no provider: it goes through Supabase Auth's own mailer,
+the one already sending sign-up confirmations. `/forgot-password` → Supabase emails a link
+→ `/auth/confirm` exchanges the token server-side → `/reset-password`, which signs them out
+afterwards so they come back through the front door.
+
+**Still open:** an email provider, so *invitations* send themselves. That is arbitrary
+application mail rather than auth mail, which is why the two could be separated and why
+this half shipped first. It is deployment work, not schema work, and worth doing before
+real users are onboarded at any scale.
 
 ## What's explicitly not in scope for the MVP milestones above
 
