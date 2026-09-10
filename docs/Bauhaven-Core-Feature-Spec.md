@@ -51,6 +51,10 @@ Core is the shared backend — and a small set of shared UI components — that 
 | 6 | Profile management (photo, language, contact) | All | Must | |
 | 7 | Profile switcher (when a user has >1 active role) | Multi-role users | Must | Shared component, embedded inside Admin/Academy. **Not built in either app.** Both have working auth as of Academy-web's auth pass; the switcher was deliberately left out of it — see `Bauhaven-Architecture-Plan.md` §6, "Auth as built" |
 | 8 | Invitations (send + accept) | Admin, Staff → invitee | Must | **Built** — needed `009_invitations_and_onboarding.sql`. Send from Admin-web's People screen; accept at `/invite/[token]` in **both** apps. Nothing is emailed (no provider configured) — the link is handed to the sender. See §8, "Onboarding as built" |
+| 8b | Self-signup that doubles as an application | Anyone → Admin | Must | **Built** — needed `012_academy_signup_applications.sql`. Academy's `/signup` creates the account and files the application in one step; approving in Admin grants the role and enrols. No invitation is issued on this path — the account already exists. See §10 |
+| 8c | Bulk invitations | Admin, Staff → a cohort | Should | **Built** — People → "Invite a group". One role and one programme for a pasted list; every link back at once. Someone already holding an account or an unexpired invitation is skipped and reported, not treated as a failure |
+| 8d | Direct account creation | Admin | Should | **Built** — People → "Create directly", needing `013_admin_create_account.sql`. The Admin sets the password, so the Admin knows it — the deliberate trade against invitations. See §11 |
+| 8e | Password reset | Anyone with an account | Must | **Built** in both apps, and needing no mail provider — Supabase Auth's own mailer sends it. Was a genuine hole: a forgotten password previously required an Admin and a SQL script. See §11 |
 | 9 | Announcements (post, scoped to role/group) | Admin, Staff → all | Should | |
 | 10 | Notifications (system-generated: deadlines, approvals) | All | Should | |
 | 11 | Requests: absence/unavailability, with role-based approval (User→1 Staff, Staff→1 Admin, Admin→all other Admins) | All | Must | Approved request auto-marks the matching Attendance session as excused; Staff can override |
@@ -88,7 +92,7 @@ Everything below came out of implementing invitations, user administration, the
 application handoff and the first-admin bootstrap. Before that work, **there was no way to
 create an account except by hand** — in either app, for anyone.
 
-- **The gap was total, not partial.** Neither client has a signup route; `handle_new_user()`
+- **The gap was total, not partial.** Neither client had a signup route (Academy has one now — §10); `handle_new_user()`
   fills in `public.users` on sign-up but grants no role; and `user_roles_write` is
   `using (auth_is_admin())`, so a brand-new user cannot give themselves a role and only an
   existing Admin can give them one. Every account — the first Founder, every Staff member,
@@ -126,7 +130,11 @@ create an account except by hand** — in either app, for anyone.
   point nobody can grant it back through the app and the fix is the seed script and a
   database credential.
 
-- **Nothing is emailed, and the UI says so.** No mail provider is configured on this project
+- **Nothing is emailed, and the UI says so.** *(Still true of invitations. Password-reset
+  mail is the one exception, and it is not a counterexample: Supabase Auth sends it through
+  its own mailer, which needs no provider. Auth mail and application mail are separate
+  problems, which is why one could ship without the other — see §11.)* No mail provider is
+  configured on this project
   and there is no notification delivery either, so the invitation link is handed to whoever
   created it, to send however they actually reach people — which for Bauhaven is as likely to
   be WhatsApp as email. Claiming an invitation had been "sent" when it was only written to a
@@ -154,6 +162,131 @@ create an account except by hand** — in either app, for anyone.
   and someone who confirmed their email comes back to the same link. The token is the
   credential; middleware doesn't need to guess.
 
-## 10. Assumptions to confirm
+## 10. Self-signup as built
+
+The second intake path, added after invitations. Someone can now create their own Academy
+account, and doing so **is** applying — the account and the application are written
+together, and an Admin approving the application is what turns a dormant account into a
+usable one.
+
+- **Two intake paths, one queue.** The public website's form still files an anonymous
+  application with no account behind it; Academy's `/signup` files one carrying
+  `applicant_id`. Both land in the same Applications screen with the same statuses and the
+  same buttons — only the last step of approval differs, and `applicant_id` is what selects
+  it. Keeping both was a recorded decision: the website is where most applicants first meet
+  Bauhaven, and requiring an account before applying would lose them.
+
+- **Approval branches on `applicant_id`.** An anonymous application still earns an
+  invitation. An Academy sign-up gets the `student` role and the enrolment written directly,
+  because there is nobody to invite — issuing an invitation to an address that already has
+  an account produces a token that can never be redeemed, which is exactly the failure
+  `inviteApprovedApplicant` already refuses to create.
+
+- **Academy has a gate now; before this it had none.** Any signed-in account got the whole
+  app, so a pending applicant would have seen Tasks, Attendance and Requests, all empty.
+  Empty screens read as "this is broken", not "you're not approved yet", and the person
+  can't tell which. `(app)/layout.tsx` checks for an enrolment and otherwise shows where the
+  application stands.
+
+- **Four pending states, not one.** `submitted`, `confirmed`, `approved` and *no application
+  at all* say genuinely different things and are not collapsed into a single "pending"
+  message. `approved` while still behind the gate means the role grant or the enrolment
+  didn't land — approval writes three things and nothing makes them atomic — so that screen
+  says so rather than leaving a now-false "we're reviewing it" up. The same failure is
+  reported to the reviewer on the Admin side, against the row they just approved.
+
+- **A declined application keeps the account.** Recorded decision. They can apply again for
+  another programme or a later intake without starting from nothing, and the declined
+  screen says that plainly rather than dressing up the outcome.
+
+- **One open application per account**, enforced by a partial unique index rather than by
+  the form — `idx_applications_one_open_per_applicant` covers `status in ('submitted',
+  'confirmed')` only, so re-applying after a decline is allowed and anonymous applications
+  are unaffected. Checking in the action instead would leave the double-submit race open.
+
+- **`applications_select` gained an own-row arm.** It was Admin/Staff only, which meant an
+  applicant could not read the application they had just filed — the pending screen would
+  have had nothing to show. The new arm is `applicant_id = auth.uid()`, so it exposes their
+  own row and nothing else.
+
+- **`applicant_id` comes from the new session, never the form.** `signUpAndApply` reads it
+  from the `signUp` result. An application naming somebody else's account wouldn't be
+  escalation — approving it would grant the role to *them* — but it isn't a state the app
+  should be able to produce.
+
+- **The account is created before the application, on purpose.** A failed application leaves
+  a usable account they can apply from again; the reverse — an application pointing at an
+  account that doesn't exist — is not recoverable by them at all. Same ordering, and the
+  same reasoning, as the invitation-acceptance flow.
+
+- **Email confirmation is on.** With it on, `signUp` returns a user but no session. The
+  application is still filed and the outcome is reported as "check your email" rather than
+  as a failure, because nothing has actually gone wrong: the only thing outstanding is a
+  link Supabase has already sent.
+
+## 11. Making accounts easy to create
+
+Everything above made accounts *possible*. This pass made them quick, which is a different
+problem and was blocking real use: adding one person meant a form, a copied link, a message
+sent by hand, and a wait. Twenty people meant twenty of each.
+
+- **A pending invitation's link was recoverable exactly once, and that was a bug.**
+  `getDirectory` already read the token and shipped it to the client; the row rendered only
+  a Revoke button. So closing the panel that first showed a link meant revoking and
+  reissuing — while `CopyLink` was telling Admins "you can copy it again from the list
+  below". The data was there the whole time; the control wasn't.
+
+- **Bulk invitations treat partial success as the normal case.** A real list contains
+  somebody who already has an account and somebody invited last week. Those are reported per
+  address and everyone else is still invited, because refusing the batch would make the
+  Admin edit the list and resubmit — the work the feature exists to remove. Checks are
+  batched into two reads for the whole list rather than two per address.
+
+- **Matching is case-insensitive, and that is not incidental.** `idx_users_email` is unique
+  on the raw column, not on `lower(email)`, so an exact-match lookup would miss an account
+  stored with a capital letter and issue an invitation whose token can never be redeemed.
+  The single-invite path already used `ilike` for this reason; the bulk path had to match it.
+
+- **Direct creation exists, and gives up the thing invitations protect.** `admin_create_account`
+  (013) takes a name, email, password and role and returns an account that signs in
+  immediately. The Admin therefore knows the password, which contradicts the principle §9
+  states outright. Both paths exist because they answer different situations — a link is
+  right for somebody you are emailing and wrong for somebody in the room — and invitations
+  stay the default and the first tab. Admin-only, matching `user_roles_write`.
+
+- **The function refuses an existing email and never updates one.** This is its security
+  boundary, and the one line that separates it from `seed_account`, which resets passwords
+  on re-run. Exposed over PostgREST, that behaviour would let any Admin overwrite any
+  account's password — another Admin's included — and sign in as them, leaving an audit
+  trail that reads like onboarding.
+
+- **The suggested password is words and digits, not symbols and mixed case.** Its entire
+  life is being spoken aloud or typed into a WhatsApp message and re-entered on a phone
+  keyboard. `Tl;dr#8x` is stronger per character and loses on the only axis that matters
+  here: whether it survives the trip. It is shown rather than masked for the same reason.
+
+- **Password reset needed no email provider**, because Supabase Auth's own mailer sends it —
+  the same one already confirming Academy sign-ups. Auth mail and application mail turn out
+  to be separate problems, and only the second one is blocked. Before this, a forgotten
+  password meant an Admin, a SQL editor and `004_repair_seeded_logins.sql`; it was worst for
+  accounts an Admin had created with a password they typed a fortnight earlier — which the
+  direct-creation path above now produces more of.
+
+- **The reset answer is identical whether or not the address has an account**, including
+  when Supabase rate-limits the request. Otherwise the form is a way to ask who works at or
+  studies with Bauhaven — the enumeration problem the sign-in form already avoids.
+
+- **`next` on `/auth/confirm` is restricted to a local path.** It arrives in the query string
+  of a link clicked from an inbox, and the handler mints a session immediately before
+  honouring it: unchecked, that is an open redirect with a fresh session attached, reached
+  from genuine Bauhaven mail. The guard is its own module with its own tests, covering the
+  protocol-relative and backslash forms that slip past a naive `startsWith("/")`.
+
+- **Setting a new password signs the person out.** A recovery session is a session. In
+  Admin-web it would otherwise put somebody inside the app without passing the sign-in role
+  check that turns away non-staff accounts; in Academy it would carry them in on the strength
+  of an email link rather than a password they just proved they know.
+
+## 12. Assumptions to confirm
 
 *(none outstanding — all resolved above)*
