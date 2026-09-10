@@ -552,9 +552,18 @@
           <button class="btn btn-primary">+ Record transaction</button>
         </div>
 
+        <div class="stat-grid" style="grid-template-columns:repeat(2,1fr); margin-bottom:20px;">
+          <div class="stat-card"><div class="stat-label">Pending approval</div><div class="stat-value" style="color:var(--warning);">2</div></div>
+          <div class="stat-card">
+            <div class="stat-label">Income — August</div>
+            <div class="stat-value" style="color:var(--success);">500,000 XAF</div>
+            <div class="cell-secondary" style="margin-top:4px;">Includes transactions not yet approved</div>
+          </div>
+        </div>
+
         <div class="filter-tabs">
           <div class="filter-tab active">All</div>
-          <div class="filter-tab">Pending approval (3)</div>
+          <div class="filter-tab">Pending approval (2)</div>
           <div class="filter-tab">Income</div>
           <div class="filter-tab">Expense</div>
         </div>
@@ -599,12 +608,15 @@
                   </div>
                 </td>
                 <td><span class="badge success">Approved</span></td>
-                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">View</button></div></td>
+                <td><div class="row-actions cell-secondary">Approved</div></td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div class="note">Wireframe note: the "Chain" column visualizes payer → recorder → approver directly, since that three-person flow was a specific requirement — worth confirming this reads clearly before we commit to it visually.</div>
+        <div class="note">The "Chain" column visualizes payer → recorder → approver directly, since that three-person flow was a specific requirement. <b>Confirmed as built.</b> The payer step is dropped entirely when there isn't one (the expense row above starts at "recorded"), and the payer is <code>payer_name</code> — a snapshot taken at transaction time, not a live join — which is what lets "12 students" be a payer at all. Below the <code>lg</code> breakpoint the chain stacks vertically with a ↓ instead of a →: it's the widest cell in the table, and truncating a name in an audit trail defeats the column.</div>
+        <div class="note"><b>Approved rows carry no action.</b> There is no reject and no edit — <code>finance_records.status</code> is <code>check (status in ('pending','approved'))</code> with no third value, and the money columns are unwritable. A transaction that shouldn't stand is fixed by recording a <b>correction</b>: a new row whose <code>corrects_id</code> points at the original. The superseded row stays in the table (that's the audit trail) but drops out of the list and the totals, and the replacement is flagged "(correction)" so the ledger doesn't look like it lost one. The earlier "View" control was dropped, matching Enrollment — there is no finance detail screen.</div>
+        <div class="note"><b>The stat cards are the only analysis here.</b> Pending count and month-to-date income, both computed from the corrected figures. Charts, trends and expense breakdowns are Phase 2 per <code>Bauhaven-Development-Plan.md</code> and deliberately absent. The income card says when it includes unapproved rows rather than lagging behind an Admin's queue, and "this month" is Cameroon's month — a payment at 00:30 WAT on the 1st belongs to the new month, not the old one.</div>
+        <div class="note"><b>This screen isn't in the nav for everyone.</b> Finance access is granted per person by an Admin (<code>auth_has_permission('finance', …)</code>), not by holding a Staff job title — so the sidebar link is hidden entirely from anyone without it, rather than shown leading to an empty table. "Nothing here" and "you can't see what's here" are different facts. Approving is Admin-only and has no grantable arm at all: a Staff member with full finance access still sees no Approve button. See <code>Bauhaven-Admin-Feature-Spec.md</code> §8, "Finance".</div>
       </div>
 
       <!-- ================= ENROLLMENT ================= -->
@@ -747,6 +759,10 @@
           </table>
         </div>
         <div class="note">The last row is a student-created task, only possible because that student was individually granted permission — flagged here so it's visually distinguishable from staff-assigned work, not because the table needs a separate column for it.</div>
+        <div class="note"><b>One row per student, always.</b> <code>tasks.assigned_to</code> is singular, and so is <code>tasks.status</code> — so "Build a responsive landing page" assigned to a 28-student cohort is 28 rows, not one shared row with 28 assignees. That's what makes Sam's copy Graded while Fatima's is still Open. "+ New task" therefore offers a program and creates one task per actively enrolled student, saying how many before it does. See <code>Bauhaven-Admin-Feature-Spec.md</code> §8, "Tasks".</div>
+        <div class="note"><b>"Graded — 88%" reads the grade from <code>submissions.grade</code></b>, not from <code>tasks</code> — <code>tasks</code> has no grade column. The grade is free text, so "A-" and "Pass" render the same way. The separate <code>feedback.rating</code> (1-5) is not the grade and is not shown here.</div>
+        <div class="note"><b>"View" and "Give feedback" go to the same place</b> — <code>/tasks/:id</code>, where the submission link, the feedback history, and the grading form live. Only the wording and emphasis differ, because only a Submitted row has something waiting to be done.</div>
+        <div class="note"><b>This screen is Tasks only, despite the "&amp; Projects" in its title.</b> <code>projects</code> is a real, separate table — an approvable container (feature #14, Admin-only) that tasks may optionally point at via the nullable <code>tasks.project_id</code>. Nothing in Admin-web creates or approves a Project yet, and no task created here sets <code>project_id</code>. The nav label is kept because Projects belongs on this screen when it's built; the flat list above is deliberate, not an omission.</div>
       </div>
 
       <!-- ================= ATTENDANCE ================= -->
@@ -756,7 +772,10 @@
             <h1 class="page-title">Attendance</h1>
             <p class="page-sub">Web Development Bootcamp — Tuesday, 4 August session</p>
           </div>
-          <button class="btn btn-secondary">Change session ▾</button>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-secondary">Web Development Bootcamp — 4 Aug ▾</button>
+            <button class="btn btn-primary">+ New session</button>
+          </div>
         </div>
 
         <div class="stat-grid" style="grid-template-columns:repeat(3,1fr); margin-bottom:20px;">
@@ -766,7 +785,7 @@
         </div>
 
         <div class="panel">
-          <div class="panel-head"><h3>Roster</h3><span class="cell-secondary">28 students</span></div>
+          <div class="panel-head"><h3>Roster</h3><span class="cell-secondary">28 students · 1 not yet marked</span></div>
           <div class="roster-row">
             <div class="roster-avatar"></div>
             <div class="roster-name">Sam Student</div>
@@ -794,8 +813,19 @@
               <div class="status-pill excused">Excused</div>
             </div>
           </div>
+          <div class="roster-row">
+            <div class="roster-avatar"></div>
+            <div class="roster-name">Grace Fon</div>
+            <div class="status-toggle">
+              <div class="status-pill present">Present</div>
+              <div class="status-pill absent">Absent</div>
+              <div class="status-pill excused">Excused</div>
+            </div>
+          </div>
         </div>
-        <div class="note">"Excused" here is expected to auto-fill whenever an absence Request was approved for that student/date — this roster is where Staff would see and, if needed, override that.</div>
+        <div class="note">A student with no pill selected (Grace Fon) has not been marked yet — that is not the same as Absent, and it is counted separately from the three stat cards rather than inside them.</div>
+        <div class="note">Every click here is an <b>insert</b>, never an edit: <code>attendance_records</code> has no UPDATE policy, so re-marking someone writes a new row whose <code>corrects_id</code> points at the row it replaces. The pills and the stat cards both show the last row still standing in that chain.</div>
+        <div class="note">"Excused" is expected to auto-fill whenever an absence Request was approved for that student/date, with Staff able to override it here. <b>Not built as of the Attendance build</b> — the Requests approval flow doesn't exist yet, so all three statuses are set manually. See <code>Bauhaven-Admin-Feature-Spec.md</code> §8, "Attendance".</div>
       </div>
 
       <!-- ================= ASSETS ================= -->
@@ -845,12 +875,15 @@
                 <td>Physical</td>
                 <td><span class="badge neutral">Retired</span></td>
                 <td>—</td>
-                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">View</button></div></td>
+                <td><div class="row-actions"><button class="btn btn-ghost btn-sm">Edit</button></div></td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div class="note">Confirmed: students cannot create Assets — creation stays Admin/Staff only, so this screen shows no student-facing entry point, unlike the Tasks screen above.</div>
+        <div class="note">Confirmed: students cannot create Assets — creation stays Admin/Staff only, so this screen shows no student-facing entry point, unlike the Tasks screen above. Note the difference from Tasks: <code>assets_write</code> has <b>no</b> permission-override arm, so this is a flat gate with nothing an Admin could grant to widen it. A non-Admin/Staff user gets an explanation, not a disabled button.</div>
+        <div class="note"><b>"Retired" is a status, not a delete.</b> <code>assets</code> carries both a <code>status</code> enum and a separate <code>deleted_at</code>, and they mean different things: a retired asset is end-of-life but still inventory, listed here and in Admin-native's field lookup with a Retired badge. Nothing on this screen writes <code>deleted_at</code>. Reads filter <code>deleted_at is null</code> and deliberately do <b>not</b> filter out retired rows. See <code>Bauhaven-Database-Schema.md</code>, "<code>status = 'retired'</code> is not a soft delete".</div>
+        <div class="note"><b>The retired row keeps its Edit control</b> (it previously showed "View"). Retiring isn't terminal — nothing in the schema makes the status one-way, and Admin-native can change a retired asset's status from the field, so making it one-way here would be a web-only restriction the other app can't honour. There is also no asset detail screen for a "View" to lead to, the same reason Enrollment dropped its own.</div>
+        <div class="note">The Type/Status toolbar is built as two real <code>&lt;select&gt;</code> controls rather than the buttons drawn above — same treatment as the Enrollment list, which this wireframe also draws as buttons. A native select gets keyboard handling and mobile pickers for free. Below the <code>md</code> breakpoint these rows become stacked cards.</div>
       </div>
 
       <!-- ================= CONTENT EDITOR ================= -->
@@ -861,7 +894,6 @@
             <p class="page-sub">Editing: Homepage — Portfolio section</p>
           </div>
           <div style="display:flex; gap:10px;">
-            <button class="btn btn-secondary">Preview</button>
             <button class="btn btn-primary">Publish</button>
           </div>
         </div>
@@ -880,19 +912,22 @@
               <label class="field-label">Body</label>
               <textarea class="field-input">From bootcamp to internship, here's a look at what Bauhaven students have shipped this year.</textarea>
             </div>
-            <div class="field-group">
-              <label class="field-label">Featured portfolio entries</label>
-              <input class="field-input" value="3 entries selected — Fatima Njoya, Sam Student, Brice Talla">
-            </div>
           </div>
           <div class="sidebar-panel">
             <h4>Publish settings</h4>
-            <div class="toggle-row"><span>Visible on live site</span><div class="toggle on"></div></div>
-            <div class="toggle-row"><span>Show in FR</span><div class="toggle on"></div></div>
-            <div class="toggle-row"><span>Featured on homepage</span><div class="toggle"></div></div>
+            <div class="toggle-row"><span>Visible on live site</span><span class="badge success">Published</span></div>
+            <button class="btn btn-primary" style="width:100%; justify-content:center; margin-top:12px;">Publish</button>
+            <button class="btn btn-secondary" style="width:100%; justify-content:center; margin-top:8px;">Save draft</button>
+            <button class="btn btn-ghost" style="width:100%; justify-content:center; margin-top:8px;">Take off the site</button>
             <div class="note" style="margin-top:12px;">Publishing triggers the Next.js revalidation webhook — live within seconds, no rebuild.</div>
           </div>
         </div>
+        <div class="note"><b>The EN/FR tabs are real tab semantics over one shared form</b>, not two pages. Both panels stay mounted and only the inactive one is <code>hidden</code> — switching tabs must not lose what someone typed, and unmounting would do exactly that. A language with a half-filled field gets a dot on its tab, since the failure this screen exists to prevent is publishing without noticing the other tab is empty.</div>
+        <div class="note"><b>The publish rule: every field is filled in both languages, or in neither.</b> The database can't express it — every <code>_fr</code> column is nullable on purpose so a draft can be saved mid-sentence — so it's an app-level gate that applies only at publish. Saving a draft needs nothing but the English title. A field written in <i>one</i> language is what's refused, because that renders as a hole on a bilingual site; a field empty in both is perfectly publishable.</div>
+        <div class="note"><b>Three toggles became one status, and "Preview" was dropped.</b> Of the sidebar's original toggles only "Visible on live site" has a column behind it (<code>pages.status</code>). "Show in FR" and "Featured on homepage" would need schema that doesn't exist, and inventing it would settle product questions nobody has asked — "Show in FR" would also contradict the publish rule directly. "Featured portfolio entries" is a page→entry relation the schema has no way to express. "Preview" is dropped because no preview route is specified anywhere in <code>Bauhaven-Architecture-Plan.md</code>; the only Site contract that exists is the revalidation webhook, and inventing a second one is not a wireframe's job.</div>
+        <div class="note"><b>Blog is not on this screen and isn't built.</b> It shares the "Website" nav section, but the Architecture Plan's roadmap puts "blog with approval flow" in Phase 2. <code>content_blocks</code> is likewise not edited here — a block has no status of its own and goes live with its page.</div>
+        <div class="note"><b>Portfolio entries carry no consent field, deliberately.</b> The Project Brief lists Portfolio consent under "Known open items" as explicitly deferred, so Admin/Staff curation is the only gate. The editor says so in plain words next to the student picker rather than pretending the question is settled.</div>
+        <div class="note">Below the <code>lg</code> breakpoint the editor and this sidebar stack into one column — a 280px sidebar beside a text editor cannot fit the 360px floor, and the publish controls are the last thing someone reaches for anyway.</div>
       </div>
 
       <!-- ================= BLOG ================= -->

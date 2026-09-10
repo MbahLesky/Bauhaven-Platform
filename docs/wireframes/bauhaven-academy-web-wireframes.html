@@ -181,6 +181,7 @@
         <div class="quick-action" onclick="showScreen('report')"><div class="qa-icon"></div>Report<br>an issue</div>
         <div class="quick-action" onclick="showScreen('testimony')"><div class="qa-icon"></div>Share<br>feedback</div>
       </div>
+      <div class="note"><b>All three are now built</b> — Request absence, Report an issue and Share feedback each have a screen. The shipped Home renders them as a three-column grid, with tighter padding and smaller labels than the other cards so three fit at the 360px responsive floor.</div>
 
       <div class="section-title">Due soon</div>
       <div class="task-card">
@@ -188,7 +189,7 @@
           <div class="task-title">Build a responsive landing page</div>
           <div class="task-meta">Due tomorrow, 11:59pm</div>
         </div>
-        <span class="badge warning">Open</span>
+        <span class="badge neutral">Open</span>
       </div>
 
       <div class="section-title">Your performance</div>
@@ -217,7 +218,7 @@
           <div class="task-title">Personal portfolio site</div>
           <div class="task-meta">Self-created · no deadline</div>
         </div>
-        <span class="badge neutral">Draft</span>
+        <span class="badge neutral">Open</span>
       </div>
 
       <div class="section-title">Submitted &amp; graded</div>
@@ -233,21 +234,25 @@
           <div class="task-title">CSS Grid layout challenge</div>
           <div class="task-meta">Submitted 2 days ago</div>
         </div>
-        <span class="badge neutral">Grading</span>
+        <span class="badge warning">Grading</span>
       </div>
 
-      <div class="note">"Personal portfolio site" only appears here because Sam was individually granted permission to create their own tasks — most students won't see a create option.</div>
+      <div class="note">"Personal portfolio site" only appears here because Sam was individually granted permission to create their own tasks — most students won't see a create option. The "+ New task" control is hidden entirely without that grant, not disabled: it's an individual override most students don't hold, and a permanently greyed-out button is just a reminder of something they can't do.</div>
+      <div class="note"><b>Badge colours corrected to match Admin-web.</b> This screen originally had Open as <code>warning</code> and Grading as <code>neutral</code> — the inverse of Admin's, so the same task changed colour depending on which app you opened it in. Admin's reading is the semantically correct one and matches the brand guidelines' colour table: Open is nothing wrong, just work to do (neutral); Grading is waiting on someone (warning); Graded is done (success, carrying the grade itself).</div>
+      <div class="note"><b>"Draft" was not a real status.</b> <code>tasks.status</code> is <code>open</code>/<code>submitted</code>/<code>graded</code>/<code>archived</code> — a self-created task is simply <code>open</code>. It's distinguished by the "Self-created ·" prefix on its meta line, the same treatment Admin-web's list uses, rather than by a status that doesn't exist.</div>
+      <div class="note"><b>Submitting is one link, because that's all a submission is.</b> <code>submissions.content_url</code> is the only column carrying the work — there's no file storage and no body text — so a submission points at something hosted elsewhere. The card expands in place rather than navigating to a detail screen: one field doesn't warrant a whole screen transition on a phone.</div>
+      <div class="note"><b>Submitting moves the task to "submitted" via a database trigger</b>, not via this app — see <code>006_submission_marks_task_submitted.sql</code>. A student assigned a task can't update it (<code>tasks_update</code> is <code>created_by = auth.uid()</code>), and before that migration nothing performed the transition at all, so Admin-web's Submitted queue would have stayed empty forever.</div>
     </div>
 
     <!-- ================= ATTENDANCE ================= -->
     <div class="screen" id="screen-attendance">
       <h1 class="greeting">Attendance</h1>
-      <p class="greeting-sub">Today's session: 9:00am – 1:00pm</p>
+      <p class="greeting-sub">Today's session</p>
 
       <div class="checkin-card">
         <div class="checkin-status">You haven't checked in yet</div>
         <button class="btn btn-primary btn-lg">Check in now</button>
-        <div class="checkin-time">Works offline — syncs when you're back online</div>
+        <div class="checkin-time">Needs a connection. If it fails, try again — nothing is saved until it succeeds.</div>
       </div>
 
       <div class="stat-row">
@@ -261,17 +266,27 @@
       <div class="history-row"><span class="history-date">Thu, 30 Jul</span><span class="badge warning">Excused</span></div>
       <div class="history-row"><span class="history-date">Wed, 29 Jul</span><span class="badge success">Present</span></div>
       <div class="history-row"><span class="history-date">Tue, 28 Jul</span><span class="badge danger">Absent</span></div>
+
+      <div class="note"><b>"Works offline — syncs when you're back online" was removed.</b> Academy-<i>web</i> can't honour it: <code>Bauhaven-Architecture-Plan.md</code> §3 gives web clients best-effort caching and reserves genuine queued writes for the native clients' Drift storage. A web page can't guarantee a queued write ever syncs — the tab closes, the browser evicts storage, there's no durable background sync — and for attendance a false "saved, will sync" is the worst available failure: the student believes they're present and the register disagrees. A failed check-in is a plain error with a retry. <b>The native wireframe keeps the offline promise, because native can keep it.</b></div>
+      <div class="note"><b>"Today's session: 9:00am – 1:00pm" was removed.</b> <code>attendance_sessions</code> has <code>session_date</code> only — no start or end time — so those hours aren't representable. Adding time columns is a schema change nobody has asked for.</div>
+      <div class="note"><b>Three outcomes, not two.</b> Checking in succeeds, finds a record already standing, or is refused by <code>attendance_records_insert</code> (not actively enrolled in the session's program). "Already recorded" is announced as a status rather than an error — nothing failed and nothing was lost. A refusal points at a mentor, who <i>can</i> mark the student present, since Staff bypass the enrolment check.</div>
+      <div class="note"><b>A session nobody marked shows "Not marked", not "Absent".</b> On a student's own record that distinction matters: being told you were absent when the register was never taken is a different and worse statement, and it's the student who'd have to argue it back.</div>
+      <div class="note"><b>Excused sessions are left out of the rate's denominator</b> — present ÷ (present + absent). An approved absence is the system saying it doesn't count against you; folding it in would make excusing pointless.</div>
     </div>
 
     <!-- ================= REQUESTS (absence) ================= -->
     <div class="screen" id="screen-requests">
       <h1 class="greeting">Request Absence</h1>
-      <p class="greeting-sub">Goes to your Programme Manager for approval</p>
+      <p class="greeting-sub">Goes to staff for approval</p>
 
       <div class="list-item" style="flex-direction:column; align-items:stretch; gap:12px;">
         <div>
-          <div style="font-size:12px; font-weight:600; margin-bottom:6px;">Dates</div>
-          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="6 Aug – 7 Aug 2026">
+          <div style="font-size:12px; font-weight:600; margin-bottom:6px;">First day away</div>
+          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="6 Aug 2026">
+        </div>
+        <div>
+          <div style="font-size:12px; font-weight:600; margin-bottom:6px;">Last day away</div>
+          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="7 Aug 2026">
         </div>
         <div>
           <div style="font-size:12px; font-weight:600; margin-bottom:6px;">Reason</div>
@@ -279,12 +294,19 @@
         </div>
       </div>
       <button class="btn btn-primary" style="margin-top:8px;">Submit request</button>
+      <p style="font-size:11px; color:#8a8a8a; margin-top:8px;">Your mentors can see your requests. Approving them isn't handled in the app yet, so a mentor will confirm with you directly.</p>
 
-      <div class="section-title">Past requests</div>
+      <div class="section-title">Your requests</div>
       <div class="task-card">
         <div class="task-info"><div class="task-title">12 Jul 2026</div><div class="task-meta">Medical appointment</div></div>
-        <span class="badge success">Approved</span>
+        <span class="badge warning">Waiting</span>
       </div>
+
+      <div class="note"><b>"Goes to your Programme Manager" was corrected to "Goes to staff".</b> <i>(Correction to this note as first written: <code>programme_manager</code> <b>is</b> a real value — one of <code>user_roles.staff_sub_role</code>'s options, alongside auditor/coordinator/mentor. The earlier claim that no such role exists was wrong.)</i> The change still stands for the real reason: nothing connects a student to a particular programme manager — <code>user_roles.program_id</code> scopes a <i>staff</i> member to a program, with no reverse lookup and no supervisor link — and the quorum rule routes a User's request to <i>one Staff approval</i>, not to a named person.</div>
+      <div class="note"><b>Two date fields, not one "6 Aug – 7 Aug 2026" text box.</b> <code>start_date</code> and <code>end_date</code> are separate <code>date</code> columns, and a free-text range is the field that submits "next week" and stores nothing usable. A single-day absence uses the same date twice.</div>
+      <div class="note"><b>The badge shows "Waiting", not "Approved".</b> Approval isn't built — and it's blocked in the database, not just missing a screen: <code>requests</code> has SELECT and INSERT policies and no UPDATE, so no row can leave <code>'pending'</code> by any route. A wireframe showing an approved request implies a state the system currently cannot reach. See the Academy Feature Spec §7, "Requests".</div>
+      <div class="note"><b>No cancel or edit control, because there couldn't be one.</b> With no UPDATE or DELETE policy, a student cannot withdraw a request they've sent. A button that always failed would be worse than its absence.</div>
+      <div class="note"><b>Reason is required, though the column is nullable.</b> A request with no reason gives the approver nothing to decide on, and there's no comment thread on <code>requests</code> for them to ask a follow-up through. Rendered as a textarea for the same reason — a one-line box invites a three-word answer.</div>
     </div>
 
     <!-- ================= REPORT ISSUE ================= -->
@@ -295,14 +317,33 @@
       <div class="list-item" style="flex-direction:column; align-items:stretch; gap:12px;">
         <div>
           <div style="font-size:12px; font-weight:600; margin-bottom:6px;">Category</div>
-          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="Equipment / facilities">
+          <select class="btn-secondary" style="text-align:left; font-weight:400;">
+            <option>Equipment or facilities</option>
+            <option>Course or program</option>
+            <option>Account or access</option>
+            <option>Safety or wellbeing</option>
+            <option>Something else</option>
+          </select>
         </div>
         <div>
           <div style="font-size:12px; font-weight:600; margin-bottom:6px;">What's wrong?</div>
-          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="Projector in Room 2 won't turn on">
+          <textarea class="btn-secondary" rows="3" style="text-align:left; font-weight:400;">Projector in Room 2 won't turn on</textarea>
         </div>
       </div>
       <button class="btn btn-primary" style="margin-top:8px;">Submit report</button>
+      <p style="font-size:11px; color:#8a8a8a; margin-top:8px;">Staff can see your reports. If something is urgent or unsafe, tell a mentor directly as well — don't wait on this.</p>
+
+      <div class="section-title">Your reports</div>
+      <div class="task-card">
+        <div class="task-info"><div class="task-title">Equipment or facilities</div><div class="task-meta">Projector in Room 2 won't turn on</div></div>
+        <span class="badge warning">Open</span>
+      </div>
+
+      <div class="note"><b>Category is a fixed list, not a text box.</b> <code>issue_reports.category</code> is <code>text not null default 'general'</code> with <b>no check constraint</b>, so free text would put every report in a category of one — unsortable, and useless against the <code>(status, category)</code> index the schema already carries. Nothing upstream enumerates the values, so these five were chosen while building: <code>equipment</code>, <code>program</code>, <code>access</code>, <code>safety</code>, <code>general</code>. The first two mirror the nullable <code>asset_id</code> and <code>program_id</code> columns; <code>general</code> is kept verbatim because it's the column default.</div>
+      <div class="note"><b>The category is a label, not a destination.</b> The Core spec's "issue reports route to Staff by category" isn't implemented and never was: "category" appears only as that column and that index. <code>issue_reports_select</code> and <code>issue_reports_update</code> both gate on plain <code>auth_is_admin_or_staff()</code> with no category arm, so <i>any</i> Staff member or Admin can read and resolve <i>any</i> report. Corrected in the Core spec.</div>
+      <div class="note"><b>"Safety or wellbeing" doesn't summon anyone, and the screen says so.</b> It's a category so a Staff member scanning a list can see it without opening rows — but with no routing and no triage screen, telling a student to wait would be wrong. The footer points at a person instead.</div>
+      <div class="note"><b>Three statuses, not two.</b> The check constraint is <code>('open','in_progress','resolved')</code>. Academy's row type had it as <code>open | resolved</code>, which would have made a triaged report an impossible value; fixed, and all three render — "Open", "Being looked at", "Resolved".</div>
+      <div class="note"><b>No triage screen exists anywhere</b> — Admin-web's sidebar has "Issue Reports" with a count badge and its dashboard has an "Open issue reports" stat, so it was always intended, but it's never been queued. Unlike Requests approval this needs no migration: <code>issue_reports_update</code> already lets Admin/Staff resolve. See the Academy Feature Spec §7, "Three open threads".</div>
     </div>
 
     <!-- ================= TESTIMONY ================= -->
@@ -313,10 +354,24 @@
       <div class="list-item" style="flex-direction:column; align-items:stretch; gap:12px;">
         <div>
           <div style="font-size:12px; font-weight:600; margin-bottom:6px;">Your experience</div>
-          <input class="btn-secondary" style="text-align:left; font-weight:400;" value="This bootcamp completely changed how I think about...">
+          <textarea class="btn-secondary" rows="4" style="text-align:left; font-weight:400;">This bootcamp completely changed how I think about...</textarea>
+          <div style="font-size:11px; color:#8a8a8a; margin-top:6px;">Write in whichever language you prefer — it's saved in the language set on your profile.</div>
         </div>
       </div>
       <button class="btn btn-primary" style="margin-top:8px;">Submit</button>
+      <p style="font-size:11px; color:#8a8a8a; margin-top:8px;">Bauhaven may feature this on the website. Nothing is published automatically — someone chooses, and you'll see it here if it goes up.</p>
+
+      <div class="section-title">Your testimonies</div>
+      <div class="task-card">
+        <div class="task-info"><div class="task-title" style="font-weight:400;">This bootcamp completely changed how I think about...</div><div class="task-meta">Shared 12 Jul 2026</div></div>
+        <span class="badge">Shared</span>
+      </div>
+
+      <div class="note"><b>One field is right, and it stays one field.</b> <code>testimonies</code> has separate <code>content_en</code> and <code>content_fr</code> columns, but which one a student's words belong in is answered by <code>users.preferred_language</code> server-side. Showing both boxes would have been the easier build and the wrong product — it asks someone to translate their own testimonial. The unused column stays <b>null</b>, never a copy: duplicating would tell the public Site that the French text <i>is</i> the English translation.</div>
+      <div class="note"><b>That needed a migration.</b> <code>content_en</code> was <code>text not null</code> while <code>content_fr</code> was nullable — fine for editorial content that ships in English and gets translated, wrong for a person's own words. A French-speaking student (a value <code>preferred_language</code> explicitly allows) could only have had their words stored in a column named for English, or a failed insert. <code>007_testimonies_bilingual_content.sql</code> makes <code>content_en</code> nullable with a check that at least one language is present.</div>
+      <div class="note"><b>This is <i>content</i> language, not interface language.</b> next-intl is in the Tech Stack doc and has never been set up in either app — every label on this screen is still a hard-coded English string. Second feature to run into it; see the Project Brief's "Known open items".</div>
+      <div class="note"><b>No consent checkbox.</b> Portfolio/testimony consent is explicitly deferred in the Project Brief, so inventing an opt-in here would quietly decide it. The subtitle plus the footer say what the policies actually guarantee: featuring is possible, and nothing publishes automatically — <code>testimonies</code> has no UPDATE policy, so no row can reach <code>'published'</code> today. Note a student also cannot withdraw one.</div>
+      <div class="note"><b>"Shared", not "Pending", and a neutral badge.</b> A testimony isn't an application waiting on a verdict, and one that never gets featured hasn't failed. <code>published</code> renders as "On the website".</div>
     </div>
 
     <!-- ================= PROFILE ================= -->
@@ -330,8 +385,9 @@
       </div>
 
       <div class="list-item"><span>Language</span><div class="lang-toggle-sm"><span class="active">EN</span><span>FR</span></div></div>
-      <div class="list-item">Edit profile photo <span class="chev">›</span></div>
-      <div class="list-item">Contact information <span class="chev">›</span></div>
+      <div class="list-item"><span>Email</span><span style="color:#8a8a8a;">sam@example.com</span></div>
+      <div class="list-item"><span>Phone</span><span style="color:#8a8a8a;">Not set</span></div>
+      <div class="list-item"><span>Location</span><span style="color:#8a8a8a;">Douala</span></div>
       <div class="list-item" onclick="showScreen('testimony')">My testimonies <span class="chev">›</span></div>
       <div class="list-item" onclick="showScreen('requests')">My requests <span class="chev">›</span></div>
       <div class="list-item" onclick="showScreen('report')">Reported issues <span class="chev">›</span></div>
@@ -340,6 +396,11 @@
       <div class="list-item">Intern — Web Development Bootcamp <span class="badge success">Active</span></div>
 
       <button class="btn btn-secondary" style="margin-top:20px;">Log out</button>
+
+      <div class="note"><b>The Language toggle is real.</b> It writes <code>users.preferred_language</code> (<code>not null default 'en' check in ('en','fr')</code>), and the Share-feedback screen already reads it to decide whether a testimony lands in <code>content_en</code> or <code>content_fr</code>. What it does <i>not</i> do is translate the interface — next-intl has never been set up in either app, so every label here is a hard-coded English string. The shipped screen says so under the toggle rather than letting someone tap FR and conclude the app is broken. Recommended as its own task next; see the Project Brief's "Known open items".</div>
+      <div class="note"><b>"Edit profile photo ›" and "Contact information ›" became read-only rows.</b> The columns all exist on <code>users</code>, but <code>email</code> and <code>phone</code> are also sign-in credentials and <code>public.users</code> holds them separately from <code>auth.users</code> — changing one without the other silently desynchronises an account from its login. That needs <code>supabase.auth.updateUser</code> and a re-verification flow, which is its own work. And there is no Supabase Storage bucket on this project, so nothing can produce a <code>profile_photo_url</code> to upload; the avatar falls back to initials, which is the normal case rather than the fallback.</div>
+      <div class="note"><b>Roles are a read-only list, not a switcher.</b> Third pass to leave the switcher out, and the first to ship something in its place. Listing what someone is needs a query; switching which role a session <i>acts as</i> needs somewhere to persist that and screens whose content varies by it — neither exists, and a dropdown that changed nothing would be worse than an honest list. The staff sub-role is shown when there is one ("Mentor" beats "Staff"), and <code>holiday_maker</code> renders as "Holiday participant".</div>
+      <div class="note"><b>Log out lives here now.</b> It sat in the app-shell header through the Auth pass as a documented stopgap until this screen existed. It's also rendered on Profile's error state, deliberately: this page is the app's only way out of a session, so someone signed into the wrong account behind a failing profile read would otherwise be stuck.</div>
     </div>
 
   </div>

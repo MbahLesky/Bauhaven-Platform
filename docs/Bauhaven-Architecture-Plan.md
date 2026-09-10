@@ -27,7 +27,9 @@ Rationale for this split:
 **Online-first, with offline tolerance only where it's actually needed:**
 - Web clients (Admin, Academy): online-first — used with generally available connectivity.
 - Native clients (Admin, Academy): same online-first default, but built on Drift (local reactive SQLite) so attendance check-in and other field actions can queue locally and sync when back online — genuine offline tolerance rather than the web clients' best-effort caching.
-- Attendance check-in specifically: cache-and-queue regardless of client, since it's used at physical check-in points where wifi can be spotty.
+- Attendance check-in specifically: cache-and-queue **on the native clients**, since it's used at physical check-in points where wifi can be spotty.
+
+  *(Corrected during Academy-web's Attendance build. This line previously read "cache-and-queue **regardless of client**", which contradicted the line directly above it — web clients get best-effort caching, native gets genuine queued writes via Drift. The two readings can't both hold, and "regardless of client" is the one that has to give: a web page cannot guarantee a queued write ever syncs. The tab closes, the browser evicts storage, and there is no durable background-sync primitive in this stack. For attendance specifically that gap is not academic — a student who is told "saved, will sync when you're online" and then isn't on the register has been actively misled about the one thing this screen exists to record. Academy-web therefore fails a check-in with a plain error and a retry, and says so on the card. Keeping the queue native-only is also what makes native's offline capability a real differentiator rather than a nominal one.)*
 - Site: already live — whatever hosting it currently uses; the content editor adds a new integration point, not a new hosting decision.
 
 ## 4. Data model
@@ -90,11 +92,33 @@ Admin sends the specific path(s) affected by what was just published — the por
 { "error": { "code": "invalid_secret" | "revalidation_failed", "message": "..." } }
 ```
 
+**Implementation note (added during the Admin-web content editor build):** the contract above is implemented verbatim in `bauhaven-admin-web` as `src/lib/site-revalidate.ts` — header auth, both response shapes, `warn`-level logging, and the 2-attempt short backoff. Two things the build surfaced that the contract didn't cover:
+
+- **Per-entry portfolio paths aren't reachable yet.** The request-body example shows `/portfolio/a-booking-platform-for-a-local-tailor-shop`, but `portfolio_entries` has **no `slug` column** — so Admin has nothing to build that path from, and a uuid-based guess would ask Site to revalidate a route that may not exist. Publishing an entry currently sends `["/portfolio"]` (the index), which is correct and complete for a Site that renders entries from it. **Adding `slug` to `portfolio_entries` is an M6 prerequisite** if Site gives each entry its own route.
+- **A third outcome, "not configured".** With `SITE_REVALIDATE_URL`/`SITE_REVALIDATE_SECRET` unset, Admin publishes and reports that nothing was refreshed, rather than reporting a failure. An Admin instance running against no Site is a normal local-development state, and treating it as a failure trains people to ignore the warning that matters.
+- **Slug→path mapping.** Admin maps a page's slug to `/<slug>`, special-casing `home` → `/`. That's the one rule Admin has to guess at; confirm it against Site's real route table at M6.
+
 **Error handling — this call is best-effort, not transactional:** the content editor's "Publish" action commits the database write regardless of whether this webhook succeeds. A failed revalidation call is logged (`warn` level) and surfaced as a soft, non-blocking notice in Admin's UI ("Published — the live site may take a few minutes to catch up") rather than rolling back the publish or blocking the Staff member's workflow. Rationale: revalidation failing means a page is briefly stale, not that anything is broken or lost — treating it as fatal would hold real work hostage to a secondary system's uptime. A simple retry (2 attempts, short backoff) covers transient failures; anything beyond that just waits for the next publish or a manual re-trigger, since re-revalidating the same path twice is harmless (idempotent).
 
 ## 6. Auth strategy
 
 Single Supabase Auth instance shared by Core, Admin, and Academy = **one login, works everywhere** — directly fixes the "previous apps not aligned" complaint. On login, each app fetches the user's *active* `UserRole` rows (not a single field) and shows only what those roles allow. If someone holds more than one active role — an intern also enrolled as a student, or a former intern now a Mentor — they get a lightweight **profile switcher** (e.g. "Continue as Intern" / "Continue as Mentor") rather than one app trying to merge both views into one screen. Phone/OTP as a login option is worth considering given intern/student populations may not all have reliable email. The public Site doesn't need accounts for browsing — only the application-submission form writes into Bauhaven's data.
+
+### Auth as built (Admin-web, then Academy-web)
+
+Both web apps now implement this section, and implement it **identically** — Academy's auth is a port of Admin's, not a re-derivation. Same middleware (session refresh + redirect), same Server Action with the same deliberately generic "Invalid email or password" (never distinguishing a wrong password from a missing account), same Zod schema in its own module rather than inside the `"use server"` file. That last point is a build-breaking constraint rather than a style preference: a schema exported from a `"use server"` file compiles fine but silently isn't the real schema by the time a client component imports it. One product having one login should mean one implementation of it, so a change to either app's auth belongs in both.
+
+Two deliberate deviations, both recorded rather than absorbed:
+
+- **"On login, each app fetches the user's active `UserRole` rows" is true of Admin, and partly true of Academy.** Admin needs roles immediately — Finance access, Admin-only approvals, the Staff/Admin write gates — so it has `getCurrentUser` reading `user_roles`, request-cached, and every Server Action gates through it.
+
+  *(Updated at the reconciliation audit. This bullet previously said Academy had no role lookup at all and that one "would be speculative code". Academy's Profile screen now reads `user_roles` in `profile-queries.ts` — for **display**, listing what someone is.)* The distinction that still holds is the one that matters: Academy has no role-*gated* screens. Its nav is the same for everyone, and its only permission check is the individual `tasks:create` override, resolved through the `auth_has_permission` RPC exactly as Admin resolves finance access — because `user_permission_overrides` is admin-only and a student cannot read their own grant. So there is no second copy of any permission rule; there is a display query and an RPC, and Admin's `getCurrentUser` shape was correctly not ported into an app with nothing to gate.
+
+  **What the audit did find:** Academy's personal-view queries can't rely on RLS alone to scope themselves to the caller, because every relevant policy carries an `auth_is_admin_or_staff()` arm — so a multi-role user reading their own screens sees organisation-wide rows. Attendance is fixed; the same shape in tasks, requests and issue reports is flagged as a convention decision. See `Bauhaven-Academy-Feature-Spec.md` §7, "Attendance".
+
+- **The profile switcher is not built in either app.** It is a Must in the Core Feature Spec (#7) and the Academy Feature Spec (#2), and it sits in M3's gate in the Development Plan — correctly, since it needs more than an auth pass to be meaningful: a real notion of which role a session is currently *acting as*, somewhere to persist that choice, and screens whose content actually varies by it. Academy's wireframe shows the entry point ("Viewing as Intern ▾" on Home). Building it inside a basic auth pass would have produced a dropdown that changes nothing. Core's own spec already flags this ("worth a quick wireframe of the profile switcher before building it") — that wireframe is still the prerequisite.
+
+**Phone/OTP login** remains unbuilt and unscoped; the note above says "worth considering", and nothing has decided it. Both apps are email + password today.
 
 ## 7. Roadmap
 

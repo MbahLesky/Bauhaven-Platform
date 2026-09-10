@@ -20,8 +20,8 @@ Recommended sequence: **Admin-web → Academy-web → Admin-native → Academy-n
 |---|---|---|
 | M0 | Core: schema + RLS | ✅ Done — tested against live Postgres with seeded accounts, one recursion bug found and fixed |
 | M1 | Admin-web: scaffolded, real Supabase connection, one working screen (Dashboard) | `next build` clean, Dashboard reads real data from a dev Supabase project, auth redirect works |
-| M2 | Admin-web: MVP feature set | Programs, Applications, Tasks, Attendance, Finance, Assets, Content editor (see Phase 1 scope below) — each with loading/empty/error states, not just the happy path |
-| M3 | Academy-web: MVP feature set | Dashboard, Tasks, Attendance (with offline-tolerant queue on the client), Requests, Issue reporting, Profile switcher |
+| M2 | Admin-web: MVP feature set | ⚠️ **Named scope met; one open item** — Programs, Applications, Tasks, Attendance, Finance, Assets and the Content editor all ship with loading/empty/error/success states. See "M2 close-out" below |
+| M3 | Academy-web: MVP feature set | ⚠️ **Every screen built; one named gate item outstanding.** Dashboard, Tasks, Attendance, Requests, Issue reporting, Testimony and Profile all ship with loading/error/success states, and Academy-web's wireframe now has no unbuilt screen. The **profile switcher** is the gap — Profile lists active roles read-only, and switching which role a session acts as still needs an "acting as" concept that doesn't exist. ~~Attendance (with offline-tolerant queue on the client)~~ — corrected during the Attendance build: web gets best-effort caching only, and the Drift-backed queue is M5's, per `Bauhaven-Architecture-Plan.md` §3. See "M3 close-out" below |
 | M4 | Admin-native: MVP | Home, Approvals (finance/applications/requests), Finance, Attendance (read-mostly), Assets — matching the deliberately-scoped-down wireframe, not full Admin-web parity |
 | M5 | Academy-native: MVP | Full parity with Academy-web's screens, plus real Drift-backed offline attendance check-in and FCM push for deadlines |
 | M6 | Site: Portfolio section | New `/portfolio` route reading from Supabase, on-demand ISR revalidation wired to Admin's content editor |
@@ -31,7 +31,8 @@ Each milestone's exact feature list comes from the **Phase 1 (MVP)** row of the 
 ## Testing gates (per the priority ladder in `testing-strategy`)
 
 Don't move a milestone to "done" without:
-1. **Business logic & data layer** — near-complete unit test coverage. For this platform that's: permission-override resolution, the finance approval-quorum logic, attendance excused-auto-fill from approved requests.
+1. **Business logic & data layer** — near-complete unit test coverage. For this platform that's: permission-override resolution, finance approval and its append-only correction resolution, attendance excused-auto-fill from approved requests.
+   *(Corrected during the Finance build: this line previously said "the finance approval-**quorum** logic". Finance has no quorum — `finance_records` carries a single `approved_by`. Quorum belongs to absence Requests, which track it in a separate `request_approvals` table. See Bauhaven-Database-Schema.md, "Two approval mechanisms, not one".)*
 2. **Critical flows** — one flow test per app's core job: Admin-web (approve a finance record), Academy-web/native (submit a task, check in to attendance), Admin-native (approve from the queue).
 3. **Manual checklist** at MVP stage for everything else — full automation comes with Phase 2, not before.
 
@@ -44,6 +45,109 @@ A bug fix without a regression test isn't done — this applies from M1 onward, 
 - EN and FR both checked — French runs 15–25% longer, and a screen that only works in English isn't done.
 - RLS-backed: the screen trusts the database's authorization, it doesn't duplicate permission logic in the client.
 - **Any doc this screen's behavior touches is updated in the same commit** — feature spec, wireframe, schema doc, or architecture plan, per `Bauhaven-Coding-Standards.md`'s documentation-sync rule. A screen that works but leaves its spec describing something else isn't done, it's drifted.
+
+## M2 close-out — what shipped, and the two things that didn't
+
+Every screen M2 names is built, each with real loading, empty, error and success states, and each RLS-backed rather than re-implementing permissions client-side. Building them surfaced four policy-vs-spec gaps that are now fixed in migrations `003`–`005`, plus one documentation error (this plan's own "finance approval-quorum" line).
+
+**Two items are open, and neither is Phase 2 work hiding behind the roadmap:**
+
+1. ~~**Admin's sidebar links to `/issue-reports`, which doesn't exist.**~~ **Resolved.** Feature #30 is built, alongside absence-request approvals at `/requests` — the two Staff-side halves of features Academy-web had shipped submission-only. Both are in M2's module list in spirit rather than by name, and building them here rather than deferring was the right call for the reason originally recorded: a Must feature reachable-but-missing is the worst of the three options, and Academy was by then producing rows nobody could act on.
+
+2. **Admin's sidebar links to `/blog`, which doesn't exist and shouldn't yet.** Blog is Phase 2 by the Architecture Plan's roadmap, so *not building it* is correct — the defect is the link, not the absence. Either remove it from the nav until Phase 2 or render an explicit "coming in Phase 2" placeholder; a 404 is neither.
+
+Both are one-line product calls rather than engineering work, which is why they're recorded here instead of being decided unilaterally during the Content Editor build.
+
+**Also deferred, correctly, with the reasoning already written down:** Services (#6, not in M2's list), Projects and task deletion (#14/#15), Attendance's auto-excuse (blocked on Requests, a Phase 2 entity), ~~the Application→Enrollment handoff (blocked on Invitations)~~ **— now built; see "Onboarding" below**, financial analysis (#23, Phase 2), and per-entry portfolio revalidation (needs a `slug` column on `portfolio_entries` — an M6 prerequisite, see the Architecture Plan).
+
+
+## M3 close-out — Academy-web
+
+Every screen in `bauhaven-academy-web-wireframes.html` is built: Home, Tasks, Attendance,
+Requests, Report a problem, Share feedback, Profile. Four gates clean (`tsc`, `build`,
+`lint`, 167 Vitest tests).
+
+**Three items are open, and only the first is in M3's own gate list:**
+
+1. **The profile switcher (feature #2, Must) is still not built** — the third pass to leave
+   it out, and the first to say what exists instead: Profile lists active `user_roles` rows
+   read-only, with role, program and status. Switching needs somewhere to persist which
+   role a session is acting as, and screens whose content actually varies by it; neither
+   exists, and a dropdown that changed nothing would be worse than an honest list. It is
+   the one named M3 gate item outstanding, so **M3 is not closed**.
+
+2. **"View performance summary" (feature #12, Must) is unbuilt and isn't in M3's gate list
+   either.** Aggregated grades and feedback across submissions — the data is all there
+   (`submissions.grade`, `feedback`), and Academy's Tasks screen already shows both per
+   task. Same class of problem as Admin's `/issue-reports`: a Must feature that no
+   milestone claims. Decide whether it belongs to M3 or a milestone of its own.
+
+3. **next-intl remains unset up across both apps.** Profile's language toggle now persists
+   `users.preferred_language` for real, and the testimony form already consumes it — but
+   every label in Admin-web and Academy-web is still a hard-coded English string.
+   **Recommended as its own task, next**, rather than deferred a fourth time; see the
+   Project Brief's "Known open items".
+
+**Not gaps:** contact details are read-only (editing `email`/`phone` desynchronises
+`public.users` from `auth.users` without a `supabase.auth.updateUser` flow), and profile
+photo upload has no storage bucket to upload to. Both are recorded in the Academy Feature
+Spec rather than half-built.
+
+
+## Onboarding — how an account comes into existence
+
+Worth its own section because for most of this project's life the answer was "by hand",
+and nothing said so.
+
+**Before:** neither app had a signup route, `user_roles_write` is Admin-only, and a
+brand-new user is nobody — so every account, from the first Founder to every student,
+needed a Supabase dashboard visit plus a direct SQL insert bypassing RLS. `invitations` had
+existed since `001` with a policy and no reader or writer.
+
+**Now:**
+
+0b. **Undoing a seed** — `supabase/seed/003_remove_accounts.sql` hard-removes accounts:
+   auth user, identity, roles, and everything they own. It previews first, and **refuses**
+   when the person owns data other people depend on (an attendance session holds the whole
+   class's register; feedback belongs to the student it was written for) — archiving is the
+   right tool there, and the Core spec always said so. For real people, archive; this is for
+   seeded and demo accounts.
+
+0. **Or seed accounts directly** — `supabase/seed/002_seed_accounts.sql` creates working
+   sign-in accounts (auth user, password, role, enrolment) in one statement each, for
+   development, testing and demos. It's the fast path, not the normal one: whoever runs it
+   chooses the passwords and therefore knows them. Verified against a real Postgres 16
+   instance — bcrypt hash, `auth.identities` row, `handle_new_user()` trigger, and
+   re-running without duplicating.
+
+1. **First Admin** — `supabase/seed/001_first_admin.sql`, run once. Create the auth account
+   in the Supabase dashboard (the `on_auth_user_created` trigger makes the `public.users`
+   row), then run the script to grant `admin`. This step is genuinely unavoidable: only an
+   existing Admin can grant a role, so somebody has to insert the first one with a
+   credential that bypasses RLS. The script exists so that's reviewed and repeatable rather
+   than remembered.
+
+2. **Everyone else** — Admin-web's **People** screen (`/users`). Invite by email and role;
+   Staff may invite learners only, Admins may invite anyone. The link is shown to the
+   sender rather than emailed, because no mail provider is configured on this project and
+   claiming otherwise would be a lie.
+
+3. **Students from the public funnel** — approving an Application issues the invitation
+   automatically, carrying the program, so accepting creates the account *and* the
+   enrolment. That's the Application→Enrollment handoff.
+
+4. **Accepting** — `/invite/[token]`, in **both** apps: Staff and Admin invitations open
+   Admin-web, learner invitations open Academy. The invitee sets their own password; the
+   role comes from the invitation, never the form.
+
+Needed `009_invitations_and_onboarding.sql`, which also closed a privilege escalation: the
+original `invitations_admin_staff` policy let a Staff member invite somebody as an **admin**
+— granting through the invitation path a role they cannot grant directly.
+
+**Still open here:** an email provider (so invitations send themselves), and a
+password-reset flow — there is currently no way for someone who forgets a password to
+recover it without an Admin. Both are deployment/configuration work rather than schema
+work, and both are worth doing before real users are onboarded at any scale.
 
 ## What's explicitly not in scope for the MVP milestones above
 

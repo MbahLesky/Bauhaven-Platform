@@ -372,6 +372,7 @@
       </div>
 
       <div class="note">Status updates (e.g. marking "needs repair") work here; creating new assets or reassigning them stays on the web app.</div>
+      <div class="note"><b>The Retired card above is why "retired" is a status, not a soft delete.</b> This screen renders retired assets in its ordinary list, and its status update writes <code>assets.status</code> — it has no delete capability at all. Admin-web was built to match: retiring there is an ordinary status change, and nothing in either app writes <code>assets.deleted_at</code>. Both filter <code>deleted_at is null</code> on read and neither filters out <code>retired</code>. Had Admin-web treated retiring as a soft delete, this card could never appear. See <code>Bauhaven-Database-Schema.md</code>.</div>
     </div>
 
     <!-- ================= PROFILE ================= -->
