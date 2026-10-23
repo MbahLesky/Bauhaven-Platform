@@ -1195,3 +1195,61 @@ CREATE TABLE public.finance_legacy_audit_event_map (
   CONSTRAINT finance_legacy_audit_event_map_pkey PRIMARY KEY (legacy_audit_id),
   CONSTRAINT finance_legacy_audit_event_map_target_event_id_fkey FOREIGN KEY (target_event_id) REFERENCES public.finance_transaction_events(id)
 );
+
+CREATE TABLE public.absence_requests (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  requester_id uuid NOT NULL,
+  enrolment_id uuid,
+  type text NOT NULL CHECK (type = ANY (ARRAY['sick'::text, 'personal'::text, 'school_exam'::text, 'annual'::text])),
+  start_date date NOT NULL,
+  end_date date NOT NULL,
+  reason text,
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT absence_requests_pkey PRIMARY KEY (id),
+  CONSTRAINT absence_requests_date_order CHECK (end_date >= start_date),
+  CONSTRAINT absence_requests_requester_id_fkey FOREIGN KEY (requester_id) REFERENCES public.profiles(id) ON DELETE CASCADE,
+  CONSTRAINT absence_requests_enrolment_id_fkey FOREIGN KEY (enrolment_id) REFERENCES public.enrolments(id) ON DELETE SET NULL
+);
+CREATE TABLE public.absence_request_approvals (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  request_id uuid NOT NULL,
+  approver_id uuid NOT NULL,
+  decision text CHECK (decision = ANY (ARRAY['approved'::text, 'rejected'::text])),
+  decided_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT absence_request_approvals_pkey PRIMARY KEY (id),
+  CONSTRAINT absence_request_approvals_unique_approver UNIQUE (request_id, approver_id),
+  CONSTRAINT absence_request_approvals_request_id_fkey FOREIGN KEY (request_id) REFERENCES public.absence_requests(id) ON DELETE CASCADE,
+  CONSTRAINT absence_request_approvals_approver_id_fkey FOREIGN KEY (approver_id) REFERENCES public.profiles(id) ON DELETE CASCADE
+);
+CREATE TABLE public.issue_reports (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  reporter_id uuid NOT NULL,
+  category text NOT NULL CHECK (category = ANY (ARRAY['facility'::text, 'asset'::text, 'curriculum'::text, 'safety_conduct'::text, 'other'::text])),
+  description text NOT NULL,
+  status text NOT NULL DEFAULT 'open'::text CHECK (status = ANY (ARRAY['open'::text, 'in_progress'::text, 'resolved'::text])),
+  asset_id uuid,
+  offering_id uuid,
+  resolved_by uuid,
+  resolved_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT issue_reports_pkey PRIMARY KEY (id),
+  CONSTRAINT issue_reports_reporter_id_fkey FOREIGN KEY (reporter_id) REFERENCES public.profiles(id) ON DELETE CASCADE,
+  CONSTRAINT issue_reports_offering_id_fkey FOREIGN KEY (offering_id) REFERENCES public.offerings(id) ON DELETE SET NULL,
+  CONSTRAINT issue_reports_resolved_by_fkey FOREIGN KEY (resolved_by) REFERENCES public.profiles(id) ON DELETE SET NULL
+);
+CREATE TABLE public.assets (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  type text NOT NULL CHECK (type = ANY (ARRAY['physical'::text, 'digital'::text])),
+  status text NOT NULL DEFAULT 'fine'::text CHECK (status = ANY (ARRAY['fine'::text, 'needs_repair'::text, 'retired'::text])),
+  assigned_to uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  deleted_at timestamp with time zone,
+  CONSTRAINT assets_pkey PRIMARY KEY (id),
+  CONSTRAINT assets_assigned_to_fkey FOREIGN KEY (assigned_to) REFERENCES public.profiles(id) ON DELETE SET NULL
+);
