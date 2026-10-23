@@ -1,34 +1,53 @@
 # Bauhaven Platform
 
-Shared foundation for the Bauhaven apps — planning documentation and the Supabase backend (schema, RLS, Auth, Storage). Not a standalone app; `bauhaven-admin-web` and `bauhaven-academy-web` both depend on this repo.
+Shared foundation for the unified Bauhaven ecosystem — architectural documentation, live database schema (`supabase/db.sql`), ordered SQL migrations (`supabase/migrations/0001`–`0037`), and privileged Supabase Edge Functions (`supabase/functions/`).
 
-Originally sketched as two separate repos (docs, and a Core backend repo), combined into one here since both are shared dependencies of every app — no reason to make two repos to clone instead of one.
+All active Bauhaven applications share a single Supabase backend project (`keyaahfksbfigcdbbuda`).
 
-## Structure
+## Active Projects (5)
 
+| Project | Stack | Role |
+|---|---|---|
+| **Bauhaven-Platform** | Supabase (PostgreSQL, Auth, RLS, Edge Functions) + Markdown Docs | Single source of truth for database migrations, Edge Functions, and documentation |
+| **Bauhaven-Admin-Web** | Next.js 16 (App Router, TypeScript, Tailwind v4) | Admin & Staff web console (Programmes/Cohorts, Applications, Enrolment, Tasks, Attendance, Absence Requests, Issue Reports, Assets, Content, People/Roles, and lightweight Finance Income/Expense entry) |
+| **Bauhaven-Academy-Web** | Next.js 16 (App Router, TypeScript, Tailwind v4) | Participant / Learner web portal (Dashboard, Tasks & Submissions, Attendance History, Absence Requests, Issue Reports, Testimony/Feedback, Profile) |
+| **bauhaven_ft** | Flutter (Riverpod, GoRouter, Supabase) | Dedicated Finance Tracker mobile app (full accounting, approvals, budgets, invoices, loans, petty cash, reports). **Protected — do not modify** |
+| **bauhaven-website** | Next.js 16 (App Router) | Public marketing website and admissions intake (`public.applications`, `public.contact_messages`, `public.website_reviews`) |
+
+## Paused Projects (Reference Only)
+
+The following repositories are paused (marked with `PAUSED.md`) and kept as reference only:
+- `bauhaven-admin` (Flutter Admin app — superseded by `Bauhaven-Admin-Web`; its backend migrations `0001`–`0032` and Edge Functions now live here in `Bauhaven-Platform/supabase/`)
+- `BauhavenDocs` (Legacy planning documents — consolidated into `Bauhaven-Platform/docs/`)
+- `studio-bauhaven-website` (Standalone Sanity Studio — paused while core platform unifies)
+
+## Repository Structure
+
+```text
+docs/                         # Platform architecture & feature specifications
+supabase/
+  db.sql                      # Full reference dump of the live unified database schema
+  migrations/                 # Ordered, idempotent SQL migrations (0001 through 0037)
+  functions/                  # Shared Supabase Edge Functions:
+    accept-admin-invitation/  #   Activates a staff member's pending role invitation
+    approve-application/      #   Approves an application, creates enrolment & invites user
+    bootstrap-super-admin/    #   One-time super_admin bootstrap
+    invite-administrator/     #   Invites staff or grants a scoped role assignment
+    notify-task-assignment/   #   Emails participants when a task is assigned
+    resend-invitation/        #   Resends an applicant's invitation email
+  proposed/                   # Reference copies of additive migrations 03–08 (now in migrations/0033–0037)
+  archive-prototype/          # Archived early prototype migrations (001–015) kept for historical reference
 ```
-docs/           # every planning document — start with docs/Bauhaven-Project-Brief.md
-supabase/       # schema migrations, RLS policies, Supabase CLI config
-```
 
-## Start here
+## Migration Sequence (`supabase/migrations/`)
 
-**New to this project?** Read `docs/Bauhaven-Project-Brief.md` first — it's the front door and links to everything else.
-
-## Contributing — from any of the three repos
-
-Docs here are the source of truth for `bauhaven-admin-web` and `bauhaven-academy-web` alike. If a change in either app touches something a doc describes — schema, RLS, a feature's actual behavior, a screen's structure, an API contract — update that doc **in the same commit**, not as a follow-up. Full rule and examples: `docs/Bauhaven-Coding-Standards.md`, "Documentation stays in sync."
-
-## Supabase setup
-
-1. Install the Supabase CLI: `npm install -g supabase`
-2. `supabase init` (if not already linked), then `supabase start` — spins up local Postgres, Auth, Storage, Studio
-3. Migrations in `supabase/migrations/` apply automatically on `supabase start` / `supabase db reset`
-4. The migrations are already tested against a live Postgres instance with seeded accounts — see `docs/Bauhaven-Database-Schema.md` for what was tested and the five real bugs caught and fixed along the way (an RLS recursion issue in `002`, an application-approval gap in `003`, an ungradeable `submissions` table in `004`, an unapprovable `finance_records` in `005`, and a task-status transition with no owner in `006`)
-5. Create a **separate Supabase project for production** — never share a database between dev and prod
-6. Each web app needs `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` pointed at this project — see that app's own `.env.example`
-
-## Before production
-
-- RLS policies are tested against seeded test data, not a copy of real production data — rehearse migrations against a realistic dataset before the first production deploy.
-- No seed data included beyond what was used for testing — add real seed data (initial programs, admin accounts) once there's real content, not placeholder business data.
+- `0001`–`0008`: Core extensions, RBAC (`profiles`, `roles`, `permissions`, `role_permissions`), catalogue (`offerings`, `cohorts`), admissions (`applications`, `application_reviews`, `application_approvals`), `invitations`, `enrolments`, `audit_logs`.
+- `0009`–`0017`: Governance v2 (`user_role_assignments`, `admin_invitations`, `staff_profiles`, `get_my_active_roles()`, `private.has_permission()`, `public.has_permission_for()`).
+- `0018`–`0019`: Learning (`learning_projects`, `tasks`, `task_assignments`, `submissions`, `feedback`).
+- `0020`–`0024`: Finance schema and RLS (`finance_payment_accounts`, `finance_income`, `finance_expenses`, `finance_expense_categories`, `finance_budgets`, `finance_invoices`, `finance_loans`, `finance_petty_cash_entries`, `finance_transaction_events`, `finance_log_event()`).
+- `0025`–`0032`: Public application tracking-code triggers, admin invite RPCs, participant platform tables (`attendance_sessions`, `attendance_records`, `notifications`, `announcements`, `digital_resources`, `participant_feedback` view), and non-recursive RLS helpers.
+- `0033_attendance_staff_access.sql`: Scoped staff RLS policies for `attendance_sessions` and `attendance_records`.
+- `0034_absence_requests_and_issue_reports.sql`: `absence_requests`, `absence_request_approvals`, and `issue_reports` tables + quorum RLS policies.
+- `0035_assets.sql`: `assets` inventory table + RLS policies.
+- `0036_cms_staff_editing.sql`: Staff `cms.publish` update policies on `page_sections`, `projects`, `testimonials`, and learner policies on `website_reviews`.
+- `0037_admin_account_and_role_management.sql`: Direct account creation (`admin_create_account`) and role assignment revocation (`admin_revoke_role_assignment`).
