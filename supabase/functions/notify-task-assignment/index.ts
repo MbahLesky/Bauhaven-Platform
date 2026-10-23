@@ -106,7 +106,7 @@ function renderTaskAssignmentHtml(name: string, taskTitle: string, dueLabel: str
           </tr>
           <tr>
             <td style="padding: 24px 36px; background-color: #FFFFFF; border-top: 1px solid #F3F3F3; font-size: 12px; line-height: 1.6; color: #888888;">
-              <p style="margin: 0 0 4px 0; font-weight: 600; color: #444444;">Bauhaven Technology &amp; Vocational Center</p>
+              <p style="margin: 0 0 4px 0; font-weight: 600; color: #444444;">Bauhaven</p>
               <p style="margin: 0;">info@bauhaven.com &middot; www.bauhaven.com</p>
             </td>
           </tr>

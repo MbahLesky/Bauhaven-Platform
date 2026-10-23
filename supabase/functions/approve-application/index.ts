@@ -78,7 +78,7 @@ function renderApprovalHtml(name: string): string {
                 <tr>
                   <td>
                     <span style="font-family: 'Montserrat', Helvetica, Arial, sans-serif; font-size: 22px; font-weight: 800; letter-spacing: 1.5px; color: #1E1E1E; text-transform: uppercase;">BAUHAVEN</span>
-                    <span style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #888888; margin-top: 3px;">Technology &amp; Vocational Center</span>
+                    <span style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #888888; margin-top: 3px;">Mile IV, Bamenda, Cameroon</span>
                   </td>
                   <td align="right" valign="middle">
                     <span style="display: inline-block; padding: 4px 10px; background-color: #EBF8F2; color: #1B6E44; font-size: 11px; font-weight: 700; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid #D1F0E0;">Approved</span>
@@ -111,7 +111,7 @@ function renderApprovalHtml(name: string): string {
           </tr>
           <tr>
             <td style="padding: 24px 36px; background-color: #FFFFFF; border-top: 1px solid #F3F3F3; font-size: 12px; line-height: 1.6; color: #888888;">
-              <p style="margin: 0 0 4px 0; font-weight: 600; color: #444444;">Bauhaven Technology &amp; Vocational Center</p>
+              <p style="margin: 0 0 4px 0; font-weight: 600; color: #444444;">Bauhaven</p>
               <p style="margin: 0;">admissions@bauhaven.com &middot; www.bauhaven.com</p>
             </td>
           </tr>
