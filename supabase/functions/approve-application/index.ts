@@ -131,7 +131,7 @@ async function sendApprovalEmail(email: string, name: string): Promise<void> {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: Deno.env.get('RESEND_APPLICATIONS_FROM') || 'Bauhaven Admissions <admissions@bauhaven.com>',
+        from: Deno.env.get('RESEND_APPLICATIONS_FROM') || 'Bauhaven Admissions <team@bauhaven.com>',
         to: [email],
         subject: 'Your Bauhaven application has been approved',
         html: renderApprovalHtml(name),

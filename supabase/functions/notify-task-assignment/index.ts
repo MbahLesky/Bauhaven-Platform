@@ -119,7 +119,7 @@ function renderTaskAssignmentHtml(name: string, taskTitle: string, dueLabel: str
 }
 
 async function sendEmail(apiKey: string, to: string, subject: string, html: string): Promise<void> {
-  const from = Deno.env.get('RESEND_TASKS_FROM') || 'Bauhaven Tasks <info@bauhaven.com>';
+  const from = Deno.env.get('RESEND_TASKS_FROM') || 'Bauhaven Tasks <team@bauhaven.com>';
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {

@@ -20,154 +20,103 @@ This directory contains the production-ready, fully responsive HTML email templa
 
 ---
 
-## Directory Structure
+## Directory Structure & Complete Template Index
 
 ```text
 emails/
-├── README.md                          # This documentation and setup guide
-├── supabase-auth/                     # Templates for Supabase Auth Dashboard
-│   ├── confirm-signup.html            # New user signup verification
-│   ├── invite-user.html               # Staff, admin, and student invitations
-│   ├── magic-link.html                # Passwordless one-time login
-│   ├── reset-password.html            # Password recovery
-│   └── change-email.html              # Email change confirmation
-└── transactional/                     # Templates for Resend & Edge Functions
-    ├── application-approved.html      # Admissions acceptance notification
-    ├── application-received.html      # Admissions submission acknowledgement
-    └── task-assigned.html             # Academy task assignment notification
+├── README.md                              # This documentation and setup guide
+│
+├── supabase-auth/                         # Supabase Auth Dashboard (Go Templates)
+│   ├── confirm-signup.html                # 1. Confirm Sign Up (Link + OTP)
+│   ├── invite-user.html                   # 2. Invite User (Staff/Admin/Student)
+│   ├── magic-link.html                    # 3. Magic Link or OTP Sign-In
+│   ├── change-email.html                  # 4. Change Email Address
+│   └── reset-password.html                # 5. Reset Password
+│
+└── transactional/                         # Transactional (Resend / Edge Functions / API)
+    ├── new-application.html               # 6a. New Application (Applicant Receipt)
+    ├── new-application-staff-alert.html   # 6b. New Application (Staff Alert: To team, BCC bauhaventc)
+    ├── application-approved.html          # Admissions Acceptance Notification
+    ├── task-assigned.html                 # Academy Task Assignment Notification
+    ├── task-reminder.html                 # 7. Task Reminder (Deadline Approaching)
+    ├── permission-request.html            # 8. Permission Request (Access Elevation Review)
+    └── just-an-update.html                # 9. Just an Update (Announcements / News / Broadcasts)
 ```
 
 ---
 
-## 1. Supabase Auth Email Templates
+## 1. Supabase Auth Email Templates (Dashboard Configuration)
 
-Paste these templates directly into the **Supabase Dashboard**:  
+Paste these templates directly into your **Supabase Dashboard**:  
 👉 **Project Dashboard &rarr; Authentication &rarr; Email Templates**
 
-These templates use Supabase's native **Go template** tags (`{{ .ConfirmationURL }}`, `{{ .Token }}`, etc.) and require no external email service configuration.
+Sender address for Supabase Auth in dashboard settings: `team@bauhaven.com` (or `team@gmail.com`).
 
-### 1.1 Confirm Signup (`emails/supabase-auth/confirm-signup.html`)
+### 1.1 Confirm Sign Up (`emails/supabase-auth/confirm-signup.html`)
 - **Dashboard Section**: *Confirm signup*
 - **Subject Line**: `Confirm your Bauhaven account`
-- **Purpose**: Sent when a new user signs up on the website, academy, or mobile app.
-- **Variables**:
-  - `{{ .ConfirmationURL }}`: Verification link.
-  - `{{ .Token }}`: 6-digit confirmation code.
-  - `{{ .Email }}`: User's email address.
+- **Variables**: `{{ .ConfirmationURL }}`, `{{ .Token }}`, `{{ .Email }}`
 
 ### 1.2 Invite User (`emails/supabase-auth/invite-user.html`)
 - **Dashboard Section**: *Invite user*
 - **Subject Line**: `You've been invited to Bauhaven`
-- **Purpose**: Sent by `admin.auth.admin.inviteUserByEmail()` when inviting new administrators, staff, mentors, or accepted students.
-- **Variables**:
-  - `{{ .ConfirmationURL }}`: Invitation acceptance link.
-  - `{{ .Token }}`: Direct invite token.
-  - `{{ .Email }}`: Invitee's email address.
+- **Variables**: `{{ .ConfirmationURL }}`, `{{ .Token }}`, `{{ .Email }}`
 
-### 1.3 Magic Link (`emails/supabase-auth/magic-link.html`)
+### 1.3 Magic Link or OTP (`emails/supabase-auth/magic-link.html`)
 - **Dashboard Section**: *Magic Link*
-- **Subject Line**: `Your Bauhaven login link`
-- **Purpose**: Sent when a user requests passwordless authentication.
-- **Variables**:
-  - `{{ .ConfirmationURL }}`: One-time login URL.
-  - `{{ .Token }}`: One-time OTP.
+- **Subject Line**: `Your Bauhaven login link and code`
+- **Variables**: `{{ .ConfirmationURL }}`, `{{ .Token }}`, `{{ .Email }}`
 
-### 1.4 Reset Password (`emails/supabase-auth/reset-password.html`)
-- **Dashboard Section**: *Reset Password*
-- **Subject Line**: `Reset your Bauhaven password`
-- **Purpose**: Sent when a user initiates a password recovery request.
-- **Variables**:
-  - `{{ .ConfirmationURL }}`: Password reset link.
-  - `{{ .Token }}`: Security token code.
-
-### 1.5 Change Email Address (`emails/supabase-auth/change-email.html`)
+### 1.4 Change Email Address (`emails/supabase-auth/change-email.html`)
 - **Dashboard Section**: *Change Email Address*
 - **Subject Line**: `Confirm your new email address for Bauhaven`
-- **Purpose**: Sent when a user changes their primary email address.
-- **Variables**:
-  - `{{ .ConfirmationURL }}`: Confirmation link.
-  - `{{ .Token }}`: Verification code.
-  - `{{ .Email }}`: Current email.
-  - `{{ .NewEmail }}`: Target new email.
+- **Variables**: `{{ .ConfirmationURL }}`, `{{ .Token }}`, `{{ .Email }}`, `{{ .NewEmail }}`
+
+### 1.5 Reset Password (`emails/supabase-auth/reset-password.html`)
+- **Dashboard Section**: *Reset Password*
+- **Subject Line**: `Reset your Bauhaven password`
+- **Variables**: `{{ .ConfirmationURL }}`, `{{ .Token }}`
 
 ---
 
 ## 2. Transactional Email Templates (Resend / Edge Functions)
 
-These templates are used for event-driven transactional notifications sent via [Resend](https://resend.com) from Supabase Edge Functions or backend services.
+Transactional emails are dispatched via [Resend](https://resend.com) from Supabase Edge Functions or the website backend.
 
-### 2.1 Application Approved (`emails/transactional/application-approved.html`)
-- **Default Sender**: `Bauhaven Admissions <admissions@bauhaven.com>`
-- **Subject Line**: `Congratulations! Your Bauhaven application has been approved`
-- **Edge Function**: `supabase/functions/approve-application`
-- **Template Variables**:
-  - `{{name}}`: Applicant's full name.
-  - `{{offering_title}}`: Name of the programme (e.g. *Full-Stack Software Engineering*).
-  - `{{cohort_name}}`: Cohort identifier (e.g. *Cohort Alpha 2026*).
-  - `{{start_date}}`: Programme start date.
-  - `{{portal_url}}`: Link to the Academy portal (`https://academy.bauhaven.com` or `http://localhost:3002`).
+### 2.1 New Application (Applicant Receipt & Staff Alert)
+- **Applicant Receipt Template**: `emails/transactional/new-application.html`
+  - **Subject**: `Application Received: {{program}} - Bauhaven`
+  - **Recipient**: Applicant email address
+- **Staff Alert Template**: `emails/transactional/new-application-staff-alert.html`
+  - **Subject**: `New Application: {{applicant_name}} - {{program}}`
+  - **To**: `team@bauhaven.com`
+  - **BCC**: `bauhaventc@gmail.com`
+  - **From**: `Bauhaven Applications <team@bauhaven.com>`
+  - **Variables**: `{{applicant_name}}`, `{{applicant_email}}`, `{{applicant_phone}}`, `{{program}}`, `{{course}}`, `{{level}}`, `{{start_date}}`, `{{duration}}`, `{{message}}`, `{{admin_review_url}}`
 
-### 2.2 Task Assigned (`emails/transactional/task-assigned.html`)
-- **Default Sender**: `Bauhaven Tasks <info@bauhaven.com>`
-- **Subject Line**: `New task assigned: {{task_title}}`
-- **Edge Function**: `supabase/functions/notify-task-assignment`
-- **Template Variables**:
-  - `{{name}}`: Student's name.
-  - `{{task_title}}`: Name of the assignment.
-  - `{{due_date}}`: Formatted deadline (e.g. *15 November 2026*).
-  - `{{instructions}}`: Brief excerpt or summary of task instructions.
-  - `{{portal_url}}`: Direct link to task in Academy portal.
+### 2.2 Task Reminder (`emails/transactional/task-reminder.html`)
+- **Subject**: `Reminder: Task due soon - {{task_title}}`
+- **Sender**: `Bauhaven Tasks <team@bauhaven.com>`
+- **Variables**: `{{name}}`, `{{task_title}}`, `{{due_date}}`, `{{time_remaining}}`, `{{instructions}}`, `{{portal_url}}`
 
-### 2.3 Application Received (`emails/transactional/application-received.html`)
-- **Default Sender**: `Bauhaven Admissions <admissions@bauhaven.com>`
-- **Subject Line**: `We've received your Bauhaven application`
-- **Usage**: Website application form submission trigger.
-- **Template Variables**:
-  - `{{name}}`: Applicant's name.
-  - `{{offering_title}}`: Target programme.
-  - `{{application_id}}`: Tracking reference code.
+### 2.3 Permission Request (`emails/transactional/permission-request.html`)
+- **Subject**: `Permission Request: {{requested_permission}} from {{requester_name}}`
+- **Sender**: `Bauhaven Requests <team@bauhaven.com>`
+- **Variables**: `{{requester_name}}`, `{{requester_email}}`, `{{requested_permission}}`, `{{scope}}`, `{{reason}}`, `{{submitted_at}}`, `{{admin_url}}`
+
+### 2.4 Just an Update (`emails/transactional/just-an-update.html`)
+- **Subject**: `{{update_title}} - Bauhaven Update`
+- **Sender**: `Bauhaven Team <team@bauhaven.com>`
+- **Variables**: `{{name}}`, `{{update_title}}`, `{{update_body}}`, `{{highlights}}`, `{{cta_label}}`, `{{cta_url}}`
 
 ---
 
-## 3. Resend Sender Configuration
+## 3. Sender Header & Key Mapping
 
-When sending transactional emails, ensure the `from` field matches the registered domain in Resend:
-
-| Channel / Type | From Header | Resend Purpose |
+| Purpose | Default Sender | Resend Key Variable |
 |---|---|---|
-| **Admissions & Applications** | `Bauhaven Admissions <admissions@bauhaven.com>` | Application confirmation & approvals |
-| **Tasks & Cohort Notifications** | `Bauhaven Tasks <info@bauhaven.com>` | Task assignments, submissions, deadlines |
-| **Requests & Permissions** | `Bauhaven Requests <info@bauhaven.com>` | Leave requests, access elevation |
-| **General Platform Announcements** | `Bauhaven <info@bauhaven.com>` | System-wide updates |
-
----
-
-## 4. How to Update in Edge Functions
-
-In your Edge Function (`supabase/functions/<name>/index.ts`):
-```typescript
-import { sendEmail } from './email-helper.ts'; // or inline fetch to https://api.resend.com/emails
-
-const template = await Deno.readTextFile(new URL('../../emails/transactional/task-assigned.html', import.meta.url));
-
-const html = template
-  .replaceAll('{{name}}', assigneeName)
-  .replaceAll('{{task_title}}', task.title)
-  .replaceAll('{{due_date}}', dueLabel)
-  .replaceAll('{{instructions}}', task.instructions || 'Review instructions on the portal.')
-  .replaceAll('{{portal_url}}', 'https://academy.bauhaven.com/tasks');
-
-await fetch('https://api.resend.com/emails', {
-  method: 'POST',
-  headers: {
-    Authorization: `Bearer ${resendApiKey}`,
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    from: 'Bauhaven Tasks <info@bauhaven.com>',
-    to: [assigneeEmail],
-    subject: `New task assigned: ${task.title}`,
-    html,
-  }),
-});
-```
+| **Admissions & Applications** | `Bauhaven Applications <team@bauhaven.com>` | `resend_api_key (applications)` |
+| **Tasks & Reminders** | `Bauhaven Tasks <team@bauhaven.com>` | `resend_api_key (notify_tasks)` |
+| **Requests & Permissions** | `Bauhaven Requests <team@bauhaven.com>` | `resend_api_key (request/permissions)` |
+| **Info & Platform Updates** | `Bauhaven Team <team@bauhaven.com>` | `resend_api_key (info and updates)` |
+| **Supabase Auth** | `Bauhaven <team@bauhaven.com>` | Supabase Dashboard SMTP / Custom Sender |
