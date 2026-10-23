@@ -112,3 +112,4 @@ create policy attendance_records_update_staff on public.attendance_records
     private.has_session_attendance_permission('attendance.record', attendance_session_id)
     or private.has_session_attendance_permission('attendance.correct', attendance_session_id)
   );
+

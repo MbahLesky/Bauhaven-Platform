@@ -202,3 +202,4 @@ create policy issue_reports_update_admin on public.issue_reports
   for update
   using (public.is_admin(auth.uid()))
   with check (public.is_admin(auth.uid()));
+

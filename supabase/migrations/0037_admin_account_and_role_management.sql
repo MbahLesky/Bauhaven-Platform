@@ -253,3 +253,4 @@ $$;
 
 revoke all on function public.admin_revoke_role_assignment(uuid, text) from public, anon;
 grant execute on function public.admin_revoke_role_assignment(uuid, text) to authenticated;
+

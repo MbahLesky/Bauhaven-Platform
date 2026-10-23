@@ -43,3 +43,4 @@ create policy assets_write_managers on public.assets
   for all
   using (private.has_permission('assets.manage'))
   with check (private.has_permission('assets.manage'));
+

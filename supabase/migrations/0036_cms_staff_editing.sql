@@ -58,3 +58,4 @@ create policy website_reviews_select_own_or_staff on public.website_reviews
     or public.is_admin(auth.uid())
     or private.has_permission('cms.publish')
   );
+
