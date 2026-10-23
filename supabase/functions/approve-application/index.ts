@@ -54,6 +54,75 @@ function jsonResponse(body: unknown, status = 200): Response {
 // application was approved. Best-effort only: a failure here must never
 // undo or fail the approval itself, which has already fully succeeded by
 // the time this is called.
+function renderApprovalHtml(name: string): string {
+  const safeName = name ? name : 'there';
+  const portalUrl = Deno.env.get('ACADEMY_PORTAL_URL') || 'https://academy.bauhaven.com';
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Bauhaven Application is Approved</title>
+</head>
+<body style="margin: 0; padding: 0; width: 100% !important; background-color: #F8F8F8; font-family: 'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #1E1E1E;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #F8F8F8; margin: 0; padding: 32px 16px;">
+    <tr>
+      <td align="center" valign="top">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 580px; background-color: #FFFFFF; border-radius: 8px; border: 1px solid #EAEAEA; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
+          <tr>
+            <td style="height: 5px; background: #D72638; background: linear-gradient(90deg, #D72638 0%, #F26B3B 25%, #FED500 50%, #54BE8D 75%, #26AAD1 100%);"></td>
+          </tr>
+          <tr>
+            <td style="padding: 32px 36px 20px 36px; border-bottom: 1px solid #F3F3F3;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td>
+                    <span style="font-family: 'Montserrat', Helvetica, Arial, sans-serif; font-size: 22px; font-weight: 800; letter-spacing: 1.5px; color: #1E1E1E; text-transform: uppercase;">BAUHAVEN</span>
+                    <span style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #888888; margin-top: 3px;">Technology &amp; Vocational Center</span>
+                  </td>
+                  <td align="right" valign="middle">
+                    <span style="display: inline-block; padding: 4px 10px; background-color: #EBF8F2; color: #1B6E44; font-size: 11px; font-weight: 700; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid #D1F0E0;">Approved</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 36px 36px 28px 36px;">
+              <h1 style="font-family: 'Montserrat', Helvetica, Arial, sans-serif; font-size: 22px; font-weight: 800; color: #1E1E1E; margin: 0 0 16px 0; line-height: 1.3;">
+                Congratulations, ${safeName}!
+              </h1>
+              <p style="font-size: 15px; line-height: 1.6; color: #3E3E3E; margin: 0 0 20px 0;">
+                Great news — your application to Bauhaven has been approved. Your enrolment is now active and ready.
+              </p>
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 28px 0 20px 0;">
+                <tr>
+                  <td align="center" style="border-radius: 6px; background-color: #D72638;">
+                    <a href="${portalUrl}" target="_blank" style="display: inline-block; padding: 14px 34px; font-family: 'Montserrat', Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 6px; letter-spacing: 0.5px; text-transform: uppercase;">
+                      Open Academy Portal &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="font-size: 12px; line-height: 1.5; color: #777777; margin: 20px 0 0 0;">
+                Portal link: <a href="${portalUrl}" target="_blank" style="color: #26AAD1; text-decoration: underline;">${portalUrl}</a>
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 24px 36px; background-color: #FFFFFF; border-top: 1px solid #F3F3F3; font-size: 12px; line-height: 1.6; color: #888888;">
+              <p style="margin: 0 0 4px 0; font-weight: 600; color: #444444;">Bauhaven Technology &amp; Vocational Center</p>
+              <p style="margin: 0;">admissions@bauhaven.com &middot; www.bauhaven.com</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
 async function sendApprovalEmail(email: string, name: string): Promise<void> {
   const apiKey = Deno.env.get('RESEND_API_KEY');
   if (!apiKey) return;
@@ -62,13 +131,10 @@ async function sendApprovalEmail(email: string, name: string): Promise<void> {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: 'Bauhaven <info@bauhaven.com>',
+        from: Deno.env.get('RESEND_APPLICATIONS_FROM') || 'Bauhaven Admissions <admissions@bauhaven.com>',
         to: [email],
         subject: 'Your Bauhaven application has been approved',
-        html: `<p>Hi ${name || 'there'},</p>
-               <p>Good news - your application to Bauhaven has been approved.</p>
-               <p>Log in to your account to see your enrolment details.</p>
-               <p>ÔÇö Bauhaven</p>`,
+        html: renderApprovalHtml(name),
       }),
     });
   } catch {

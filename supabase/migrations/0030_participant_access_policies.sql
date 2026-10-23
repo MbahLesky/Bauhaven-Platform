@@ -311,7 +311,7 @@ select
   f.id,
   f.submission_id,
   f.reviewer_id,
-  coalesce(p.display_name, 'Bauhaven reviewer') as reviewer_name,
+  coalesce(p.full_name, 'Bauhaven reviewer') as reviewer_name,
   f.visible_feedback,
   f.result,
   -- Always 'released' by the where clause below. Selected anyway so the Hub
@@ -350,8 +350,8 @@ with (security_invoker = false) as
 select
   e.id   as enrolment_id,
   e.mentor_id,
-  coalesce(p.display_name, 'Your mentor') as mentor_name,
-  p.avatar_path,
+  coalesce(p.full_name, 'Your mentor') as mentor_name,
+  p.avatar_url,
   true as is_primary
 from public.enrolments e
 join public.profiles p on p.id = e.mentor_id
