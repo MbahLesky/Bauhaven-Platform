@@ -205,7 +205,7 @@ Deno.serve(async (req: Request) => {
   } else {
     const { data: invitedUser, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { admin_invitation_token: rawToken },
-      redirectTo: 'bauhavenadmin://login-callback',
+      redirectTo: `${Deno.env.get('ADMIN_PORTAL_URL') || 'https://admin.bauhaven.com'}/auth/confirm?next=/set-password`,
     });
     if (inviteError || !invitedUser?.user) {
       await admin

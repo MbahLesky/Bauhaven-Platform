@@ -275,8 +275,10 @@ Deno.serve(async (req: Request) => {
   if (existingProfile) {
     userId = existingProfile.id;
   } else {
+    const academyBase = Deno.env.get('ACADEMY_PORTAL_URL') || 'https://academy.bauhaven.com';
     const { data: invitedUser, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { full_name: application.applicant_name ?? '' },
+      redirectTo: `${academyBase}/auth/confirm?next=/set-password`,
     });
     if (inviteError || !invitedUser?.user) {
       await admin.rpc('log_audit_event', {
