@@ -260,7 +260,6 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.website_reviews TO authenti
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.absence_requests TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.absence_request_approvals TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.issue_reports TO authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.issue_report_comments TO authenticated;
 
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon;
