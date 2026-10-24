@@ -56,7 +56,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 // the time this is called.
 function renderApprovalHtml(name: string): string {
   const safeName = name ? name : 'there';
-  const portalUrl = Deno.env.get('ACADEMY_PORTAL_URL') || 'https://academy.bauhaven.com';
+  const portalUrl = Deno.env.get('HUB_PORTAL_URL') || Deno.env.get('ACADEMY_PORTAL_URL') || 'https://hub.bauhaven.com';
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -275,7 +275,7 @@ Deno.serve(async (req: Request) => {
   if (existingProfile) {
     userId = existingProfile.id;
   } else {
-    const academyBase = Deno.env.get('ACADEMY_PORTAL_URL') || 'https://academy.bauhaven.com';
+    const academyBase = Deno.env.get('HUB_PORTAL_URL') || Deno.env.get('ACADEMY_PORTAL_URL') || 'https://hub.bauhaven.com';
     const { data: invitedUser, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { full_name: application.applicant_name ?? '' },
       redirectTo: `${academyBase}/auth/confirm?next=/set-password`,

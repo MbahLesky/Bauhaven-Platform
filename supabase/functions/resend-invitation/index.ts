@@ -129,7 +129,7 @@ Deno.serve(async (req: Request) => {
   // applicant to use "Forgot password" on the sign-in screen instead, which
   // sends a genuine, working recovery email through this app's existing
   // flow (auth_controller.dart's sendPasswordReset).
-  const academyBase = Deno.env.get('ACADEMY_PORTAL_URL') || 'https://academy.bauhaven.com';
+  const academyBase = Deno.env.get('HUB_PORTAL_URL') || Deno.env.get('ACADEMY_PORTAL_URL') || 'https://hub.bauhaven.com';
   const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo: `${academyBase}/auth/confirm?next=/set-password`,
   });

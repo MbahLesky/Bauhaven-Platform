@@ -35,7 +35,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 function renderTaskAssignmentHtml(name: string, taskTitle: string, dueLabel: string, instructions?: string | null): string {
-  const portalUrl = Deno.env.get('ACADEMY_PORTAL_URL') || 'https://academy.bauhaven.com';
+  const portalUrl = Deno.env.get('HUB_PORTAL_URL') || Deno.env.get('ACADEMY_PORTAL_URL') || 'https://hub.bauhaven.com';
   const instructionsPreview = instructions?.trim() || 'Review the assignment description and resources directly in your Academy portal.';
   return `<!DOCTYPE html>
 <html lang="en">
