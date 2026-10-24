@@ -36,13 +36,13 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function renderTaskAssignmentHtml(name: string, taskTitle: string, dueLabel: string, instructions?: string | null): string {
   const portalUrl = Deno.env.get('HUB_PORTAL_URL') || Deno.env.get('ACADEMY_PORTAL_URL') || 'https://hub.bauhaven.com';
-  const instructionsPreview = instructions?.trim() || 'Review the assignment description and resources directly in your Academy portal.';
+  const instructionsPreview = instructions?.trim() || 'Review the assignment description and resources directly in your Hub portal.';
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>New Task Assigned - Bauhaven Academy</title>
+  <title>New Task Assigned - Bauhaven Hub</title>
 </head>
 <body style="margin: 0; padding: 0; width: 100% !important; background-color: #F8F8F8; font-family: 'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #1E1E1E;">
   <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #F8F8F8; margin: 0; padding: 32px 16px;">
@@ -58,7 +58,7 @@ function renderTaskAssignmentHtml(name: string, taskTitle: string, dueLabel: str
                 <tr>
                   <td>
                     <span style="font-family: 'Montserrat', Helvetica, Arial, sans-serif; font-size: 22px; font-weight: 800; letter-spacing: 1.5px; color: #1E1E1E; text-transform: uppercase;">BAUHAVEN</span>
-                    <span style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #888888; margin-top: 3px;">Academy Portal</span>
+                    <span style="display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #888888; margin-top: 3px;">Hub Portal</span>
                   </td>
                   <td align="right" valign="middle">
                     <span style="display: inline-block; padding: 4px 10px; background-color: #E8F6FA; color: #026E86; font-size: 11px; font-weight: 700; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid #C4EBF3;">Task Assigned</span>

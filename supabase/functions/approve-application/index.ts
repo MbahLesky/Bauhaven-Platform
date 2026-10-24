@@ -99,7 +99,7 @@ function renderApprovalHtml(name: string): string {
                 <tr>
                   <td align="center" style="border-radius: 6px; background-color: #D72638;">
                     <a href="${portalUrl}" target="_blank" style="display: inline-block; padding: 14px 34px; font-family: 'Montserrat', Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 6px; letter-spacing: 0.5px; text-transform: uppercase;">
-                      Open Academy Portal &rarr;
+                      Open Hub Portal &rarr;
                     </a>
                   </td>
                 </tr>
