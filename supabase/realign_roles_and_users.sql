@@ -236,6 +236,63 @@ JOIN public.permissions p ON (
 WHERE r.code = 'staff'
 ON CONFLICT DO NOTHING;
 
+-- 3.5. Grant Table-Level Privileges on Operational Tables to Authenticated Role
+-- In PostgreSQL, table-level GRANTs must be present before RLS policies are evaluated.
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.applications TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.application_reviews TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.application_approvals TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.application_status_history TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.invitations TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.enrolments TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.enrolment_status_history TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.attendance_sessions TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.attendance_records TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.tasks TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.task_assignments TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.submissions TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.assets TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.page_sections TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.projects TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.testimonials TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.website_reviews TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.absence_requests TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.absence_request_approvals TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.issue_reports TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.issue_report_comments TO authenticated;
+
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon;
+
+GRANT INSERT ON TABLE public.applications TO anon;
+GRANT INSERT ON TABLE public.website_reviews TO anon;
+
+-- Update RLS policies on applications
+DROP POLICY IF EXISTS applications_update_decision_scoped ON public.applications;
+DROP POLICY IF EXISTS applications_update_decision ON public.applications;
+
+CREATE POLICY applications_update_decision_scoped ON public.applications
+  FOR UPDATE
+  USING (
+    private.has_permission('applications.decide', 'offering', offering_id)
+    OR private.has_permission('applications.review', 'offering', offering_id)
+    OR private.has_permission('applications.approve', 'offering', offering_id)
+  )
+  WITH CHECK (
+    private.has_permission('applications.decide', 'offering', offering_id)
+    OR private.has_permission('applications.review', 'offering', offering_id)
+    OR private.has_permission('applications.approve', 'offering', offering_id)
+  );
+
+DROP POLICY IF EXISTS applications_delete_admin ON public.applications;
+CREATE POLICY applications_delete_admin ON public.applications
+  FOR DELETE
+  USING (
+    private.has_permission('applications.decide', 'offering', offering_id)
+    OR private.has_permission('settings.manage')
+  );
+
 -- 4. Update public.is_admin(uid uuid)
 CREATE OR REPLACE FUNCTION public.is_admin(uid uuid)
 RETURNS boolean
