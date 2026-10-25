@@ -118,24 +118,72 @@ function renderTaskAssignmentHtml(name: string, taskTitle: string, dueLabel: str
 </html>`;
 }
 
-async function sendEmail(apiKey: string, to: string, subject: string, html: string): Promise<void> {
-  const from = Deno.env.get('RESEND_TASKS_FROM') || 'Bauhaven Tasks <team@bauhaven.com>';
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from,
-      to: [to],
-      subject,
-      html,
-    }),
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`Resend API error ${res.status}: ${body}`);
+async function sendEmail(
+  apiKey: string,
+  to: string,
+  subject: string,
+  name: string,
+  taskTitle: string,
+  dueLabel: string,
+  instructions: string | null | undefined,
+  portalUrl: string,
+  htmlFallback: string
+): Promise<void> {
+  const from =
+    Deno.env.get('RESEND_FROM_TASKS') ||
+    Deno.env.get('RESEND_TASKS_FROM') ||
+    'Bauhaven Tasks <info@bauhaven.com>';
+
+  const instructionsPreview = instructions?.trim() || 'Review task description in your Hub portal.';
+
+  try {
+    // 1. Primary delivery: Use published Resend template 'task-assigned-notification'
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from,
+        to: [to],
+        subject,
+        template: {
+          id: 'task-assigned-notification',
+          variables: {
+            name,
+            task_title: taskTitle,
+            due_date: dueLabel,
+            instructions: instructionsPreview,
+            portal_url: portalUrl,
+          },
+        },
+      }),
+    });
+
+    if (res.ok) return;
+
+    // 2. Fallback delivery: Standard responsive HTML if template is not resolved
+    const fallbackRes = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from,
+        to: [to],
+        subject,
+        html: htmlFallback,
+      }),
+    });
+
+    if (!fallbackRes.ok) {
+      const body = await fallbackRes.text().catch(() => '');
+      throw new Error(`Resend API error ${fallbackRes.status}: ${body}`);
+    }
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -146,7 +194,8 @@ Deno.serve(async (req: Request) => {
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  const resendApiKey = Deno.env.get('RESEND_API_KEY');
+  const resendApiKey = Deno.env.get('RESEND_API_KEY_TASKS') || Deno.env.get('RESEND_API_KEY');
+  const portalUrl = Deno.env.get('HUB_PORTAL_URL') || Deno.env.get('ACADEMY_PORTAL_URL') || 'https://hub.bauhaven.com';
   if (!supabaseUrl || !serviceRoleKey) {
     return jsonResponse({ error: 'Server misconfiguration: missing Supabase service credentials.' }, 500);
   }
@@ -194,22 +243,10 @@ Deno.serve(async (req: Request) => {
 
   const { data: enrolments, error: enrolmentsError } = await admin
     .from('enrolments')
-    .select('id, profiles(full_name, email)')
+    .select('id, profile_id, profiles(full_name, email)')
     .in('id', payload.enrolment_ids);
   if (enrolmentsError) {
     return jsonResponse({ error: `Failed to load assignees: ${enrolmentsError.message}` }, 500);
-  }
-
-  if (!resendApiKey) {
-    // Genuinely not configured yet - not an error in the assignment flow,
-    // just nothing to send. Tell the caller plainly rather than pretending
-    // it worked.
-    return jsonResponse({
-      ok: true,
-      sent: 0,
-      skipped: enrolments.length,
-      reason: 'RESEND_API_KEY is not configured - emails were not sent.',
-    });
   }
 
   const dueLabel = task.due_at
@@ -218,23 +255,67 @@ Deno.serve(async (req: Request) => {
 
   let sent = 0;
   const failures: string[] = [];
-  for (const row of enrolments) {
-    const profile = row.profiles as { full_name?: string; email?: string } | null;
-    const email = profile?.email;
-    if (!email) continue;
-    const name = profile?.full_name?.trim() || 'there';
-    try {
-      await sendEmail(
-        resendApiKey,
-        email,
-        `New task assigned: ${task.title}`,
-        renderTaskAssignmentHtml(name, task.title, dueLabel, task.instructions),
-      );
-      sent += 1;
-    } catch (error) {
-      failures.push(`${email}: ${error instanceof Error ? error.message : String(error)}`);
+  if (resendApiKey) {
+    for (const row of enrolments) {
+      const profile = row.profiles as { full_name?: string; email?: string } | null;
+      const email = profile?.email;
+      if (!email) continue;
+      const name = profile?.full_name?.trim() || 'there';
+      try {
+        await sendEmail(
+          resendApiKey,
+          email,
+          `New task assigned: ${task.title}`,
+          name,
+          task.title,
+          dueLabel,
+          task.instructions,
+          portalUrl,
+          renderTaskAssignmentHtml(name, task.title, dueLabel, task.instructions),
+        );
+        sent += 1;
+      } catch (error) {
+        failures.push(`${email}: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
   }
 
-  return jsonResponse({ ok: true, sent, failed: failures.length, failures });
+  // Dispatch FCM Web Push notification to all assigned profiles
+  let pushSent = false;
+  try {
+    const recipientIds = (enrolments || [])
+      .map((row: any) => row.profile_id)
+      .filter((id: string | null): id is string => Boolean(id));
+
+    if (recipientIds.length > 0) {
+      await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${serviceRoleKey}`,
+        },
+        body: JSON.stringify({
+          recipient_ids: recipientIds,
+          title: `New Task: ${task.title}`,
+          body: `You have been assigned a new task due on ${dueLabel}.`,
+          url: `${portalUrl}/tasks`,
+          type: 'task_assigned',
+          data: {
+            taskId: payload.task_id,
+          },
+        }),
+      });
+      pushSent = true;
+    }
+  } catch (pushErr) {
+    console.warn('FCM push delivery error in notify-task-assignment:', pushErr);
+  }
+
+  return jsonResponse({
+    ok: true,
+    sent,
+    push_dispatched: pushSent,
+    failed: failures.length,
+    failures,
+  });
 });
