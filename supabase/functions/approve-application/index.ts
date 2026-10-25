@@ -54,11 +54,22 @@ function jsonResponse(body: unknown, status = 200): Response {
 // application was approved. Best-effort only: a failure here must never
 // undo or fail the approval itself, which has already fully succeeded by
 // the time this is called.
-function renderApprovalHtml(name: string): string {
-  const safeName = name ? name : 'there';
-  const portalUrl = Deno.env.get('HUB_PORTAL_URL') || Deno.env.get('ACADEMY_PORTAL_URL') || 'https://hub.bauhaven.com';
+interface ApprovalEmailDetails {
+  name: string;
+  offeringTitle?: string;
+  cohortName?: string;
+  startDate?: string;
+  portalUrl?: string;
+}
+
+function renderApprovalHtml(details: ApprovalEmailDetails): string {
+  const safeName = details.name ? details.name : 'there';
+  const offeringTitle = details.offeringTitle || 'Bauhaven Programme';
+  const cohortName = details.cohortName || 'Active Cohort';
+  const startDate = details.startDate || 'Scheduled shortly';
+  const portalUrl = details.portalUrl || Deno.env.get('HUB_PORTAL_URL') || Deno.env.get('ACADEMY_PORTAL_URL') || 'https://hub.bauhaven.com';
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -93,8 +104,38 @@ function renderApprovalHtml(name: string): string {
                 Congratulations, ${safeName}!
               </h1>
               <p style="font-size: 15px; line-height: 1.6; color: #3E3E3E; margin: 0 0 20px 0;">
-                Great news — your application to Bauhaven has been approved. Your enrolment is now active and ready.
+                We are thrilled to let you know that your application to Bauhaven has been <strong>approved</strong>. You have been officially admitted to the programme.
               </p>
+
+              <!-- Enrolment Summary Card -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FBFBFB; border: 1px solid #EBEBEB; border-radius: 6px; margin: 24px 0; border-collapse: separate;">
+                <tr>
+                  <td style="padding: 18px 20px;">
+                    <p style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #888888; margin: 0 0 14px 0;">
+                      Enrolment Summary
+                    </p>
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td style="padding: 6px 0; font-size: 13px; color: #666666; width: 35%;">Programme:</td>
+                        <td style="padding: 6px 0; font-size: 14px; font-weight: 600; color: #1E1E1E;">${offeringTitle}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 6px 0; font-size: 13px; color: #666666;">Cohort:</td>
+                        <td style="padding: 6px 0; font-size: 14px; font-weight: 600; color: #1E1E1E;">${cohortName}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 6px 0; font-size: 13px; color: #666666;">Start Date:</td>
+                        <td style="padding: 6px 0; font-size: 14px; font-weight: 600; color: #1E1E1E;">${startDate}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 6px 0; font-size: 13px; color: #666666;">Status:</td>
+                        <td style="padding: 6px 0; font-size: 13px; font-weight: 700; color: #1B6E44;">Active Enrolment</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 28px 0 20px 0;">
                 <tr>
                   <td align="center" style="border-radius: 6px; background-color: #D72638;">
@@ -123,20 +164,46 @@ function renderApprovalHtml(name: string): string {
 </html>`;
 }
 
-async function sendApprovalEmail(email: string, name: string): Promise<void> {
-  const apiKey = Deno.env.get('RESEND_API_KEY');
+async function sendApprovalEmail(email: string, details: ApprovalEmailDetails): Promise<void> {
+  const apiKey = Deno.env.get('RESEND_API_KEY_APPLICATIONS') || Deno.env.get('RESEND_API_KEY');
   if (!apiKey) return;
+  const fromEmail = Deno.env.get('RESEND_FROM_APPLICATIONS') || Deno.env.get('RESEND_APPLICATIONS_FROM') || 'Bauhaven Admissions <admissions@bauhaven.com>';
+  const portalUrl = details.portalUrl || Deno.env.get('HUB_PORTAL_URL') || Deno.env.get('ACADEMY_PORTAL_URL') || 'https://hub.bauhaven.com';
   try {
-    await fetch('https://api.resend.com/emails', {
+    // 1. Primary delivery: Use official published Resend template 'application-approval'
+    const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: Deno.env.get('RESEND_APPLICATIONS_FROM') || 'Bauhaven Admissions <team@bauhaven.com>',
+        from: fromEmail,
         to: [email],
         subject: 'Your Bauhaven application has been approved',
-        html: renderApprovalHtml(name),
+        template: {
+          id: 'application-approval',
+          data: {
+            name: details.name || 'there',
+            offering_title: details.offeringTitle || 'Bauhaven Programme',
+            cohort_name: details.cohortName || 'Active Cohort',
+            start_date: details.startDate || 'Scheduled shortly',
+            portal_url: portalUrl,
+          },
+        },
       }),
     });
+
+    if (!res.ok) {
+      // 2. Fallback delivery: Standard responsive HTML if template call is rejected
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: fromEmail,
+          to: [email],
+          subject: 'Your Bauhaven application has been approved',
+          html: renderApprovalHtml({ ...details, portalUrl }),
+        }),
+      });
+    }
   } catch {
     // Best-effort - see comment above.
   }
@@ -271,30 +338,50 @@ Deno.serve(async (req: Request) => {
 
   let userId: string;
   let invited = false;
+  let portalUrl = Deno.env.get('HUB_PORTAL_URL') || Deno.env.get('ACADEMY_PORTAL_URL') || 'https://hub.bauhaven.com';
 
   if (existingProfile) {
     userId = existingProfile.id;
   } else {
     const academyBase = Deno.env.get('HUB_PORTAL_URL') || Deno.env.get('ACADEMY_PORTAL_URL') || 'https://hub.bauhaven.com';
-    const { data: invitedUser, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-      data: { full_name: application.applicant_name ?? '' },
-      redirectTo: `${academyBase}/auth/confirm?next=/set-password`,
+    // Generate invitation link directly rather than firing Supabase's default unbranded invite email.
+    // generateLink creates the user in auth.users and generates their action link without triggering the default mailer.
+    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+      type: 'invite',
+      email,
+      options: {
+        data: { full_name: application.applicant_name ?? '' },
+        redirectTo: `${academyBase}/auth/confirm?next=/set-password`,
+      },
     });
-    if (inviteError || !invitedUser?.user) {
-      await admin.rpc('log_audit_event', {
-        p_actor_id: callerId,
-        p_action: 'application.approve_failed',
-        p_entity_type: 'application',
-        p_entity_id: application.id,
-        p_before: null,
-        p_after: null,
-        p_outcome: 'failure',
-        p_metadata: { reason: inviteError?.message ?? 'invite_failed' },
-        p_request_id: null,
+
+    if (linkError || !linkData?.user) {
+      // Fallback to inviteUserByEmail if generateLink is unavailable
+      const { data: invitedUser, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
+        data: { full_name: application.applicant_name ?? '' },
+        redirectTo: `${academyBase}/auth/confirm?next=/set-password`,
       });
-      return jsonResponse({ error: `Failed to invite applicant: ${inviteError?.message}` }, 500);
+      if (inviteError || !invitedUser?.user) {
+        await admin.rpc('log_audit_event', {
+          p_actor_id: callerId,
+          p_action: 'application.approve_failed',
+          p_entity_type: 'application',
+          p_entity_id: application.id,
+          p_before: null,
+          p_after: null,
+          p_outcome: 'failure',
+          p_metadata: { reason: inviteError?.message ?? 'invite_failed' },
+          p_request_id: null,
+        });
+        return jsonResponse({ error: `Failed to invite applicant: ${inviteError?.message}` }, 500);
+      }
+      userId = invitedUser.user.id;
+    } else {
+      userId = linkData.user.id;
+      if (linkData.properties?.action_link) {
+        portalUrl = linkData.properties.action_link;
+      }
     }
-    userId = invitedUser.user.id;
     invited = true;
   }
 
@@ -362,10 +449,34 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: `Approved but failed to update application status: ${updateError.message}` }, 500);
   }
 
-  if (!invited) {
-    // existingProfile branch - see sendApprovalEmail's comment for why.
-    await sendApprovalEmail(email, application.applicant_name ?? '');
+  // Deliver official Resend template 'application-approval' to all approved applicants
+  let offeringTitle: string | undefined;
+  if (application.offering_id) {
+    const { data: offering } = await admin
+      .from('offerings')
+      .select('title')
+      .eq('id', application.offering_id)
+      .maybeSingle();
+    offeringTitle = offering?.title;
   }
+
+  let cohortName: string | undefined;
+  if (payload.cohort_id) {
+    const { data: cohort } = await admin
+      .from('cohorts')
+      .select('name')
+      .eq('id', payload.cohort_id)
+      .maybeSingle();
+    cohortName = cohort?.name;
+  }
+
+  await sendApprovalEmail(email, {
+    name: application.applicant_name ?? '',
+    offeringTitle,
+    cohortName,
+    startDate: payload.start_date ?? undefined,
+    portalUrl,
+  });
 
   await admin.rpc('log_audit_event', {
     p_actor_id: callerId,
