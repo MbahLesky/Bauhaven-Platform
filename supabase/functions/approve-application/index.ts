@@ -180,8 +180,9 @@ async function sendApprovalEmail(email: string, details: ApprovalEmailDetails): 
         subject: 'Your Bauhaven application has been approved',
         template: {
           id: 'application-approval',
-          data: {
+          variables: {
             name: details.name || 'there',
+            NAME: details.name || 'there',
             offering_title: details.offeringTitle || 'Bauhaven Programme',
             cohort_name: details.cohortName || 'Active Cohort',
             start_date: details.startDate || 'Scheduled shortly',
