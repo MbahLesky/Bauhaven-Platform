@@ -83,7 +83,7 @@ BEGIN
     -- Reactivate or update existing assignment
     UPDATE public.user_role_assignments
     SET status = 'active',
-        assigned_by = auth.uid(),
+        granted_by = auth.uid(),
         assignment_type = coalesce(p_assignment_type, 'permanent'),
         valid_from = now(),
         valid_until = p_valid_until,
@@ -99,7 +99,7 @@ BEGIN
       role_id,
       scope_type,
       scope_id,
-      assigned_by,
+      granted_by,
       assignment_type,
       valid_from,
       valid_until,
