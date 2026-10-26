@@ -121,12 +121,12 @@ BEGIN
 
   -- Audit log event
   PERFORM public.log_audit_event(
-    auth.uid(),
-    'role.assigned',
-    'user_role_assignment',
-    v_assignment_id,
-    NULL,
-    jsonb_build_object(
+    p_actor_id    => auth.uid(),
+    p_action      => 'role.assigned'::text,
+    p_entity_type => 'user_role_assignment'::text,
+    p_entity_id   => v_assignment_id::text,
+    p_before      => NULL::jsonb,
+    p_after       => jsonb_build_object(
       'target_user_id', p_user_id,
       'role_code', p_role_code,
       'scope_type', p_scope_type,
@@ -134,9 +134,9 @@ BEGIN
       'assignment_type', p_assignment_type,
       'valid_until', p_valid_until
     ),
-    'success',
-    jsonb_build_object('assigned_by', auth.uid()),
-    NULL
+    p_outcome     => 'success'::text,
+    p_metadata    => jsonb_build_object('assigned_by', auth.uid()),
+    p_request_id  => NULL::uuid
   );
 
   RETURN v_assignment_id;
@@ -219,15 +219,15 @@ BEGIN
   WHERE id = p_assignment_id;
 
   PERFORM public.log_audit_event(
-    auth.uid(),
-    'role.revoked',
-    'user_role_assignment',
-    p_assignment_id,
-    jsonb_build_object('role_id', v_target.role_id, 'user_id', v_target.user_id),
-    jsonb_build_object('status', 'revoked', 'reason', p_reason),
-    'success',
-    NULL,
-    NULL
+    p_actor_id    => auth.uid(),
+    p_action      => 'role.revoked'::text,
+    p_entity_type => 'user_role_assignment'::text,
+    p_entity_id   => p_assignment_id::text,
+    p_before      => jsonb_build_object('role_id', v_target.role_id, 'user_id', v_target.user_id),
+    p_after       => jsonb_build_object('status', 'revoked', 'reason', p_reason),
+    p_outcome     => 'success'::text,
+    p_metadata    => '{}'::jsonb,
+    p_request_id  => NULL::uuid
   );
 END;
 $$;
@@ -314,15 +314,15 @@ BEGIN
   END IF;
 
   PERFORM public.log_audit_event(
-    auth.uid(),
-    CASE WHEN p_hard_delete THEN 'user.hard_deleted' ELSE 'user.deactivated' END,
-    'user',
-    p_user_id,
-    NULL,
-    jsonb_build_object('hard_delete', p_hard_delete),
-    'success',
-    NULL,
-    NULL
+    p_actor_id    => auth.uid(),
+    p_action      => CASE WHEN p_hard_delete THEN 'user.hard_deleted'::text ELSE 'user.deactivated'::text END,
+    p_entity_type => 'user'::text,
+    p_entity_id   => p_user_id::text,
+    p_before      => NULL::jsonb,
+    p_after       => jsonb_build_object('hard_delete', p_hard_delete),
+    p_outcome     => 'success'::text,
+    p_metadata    => '{}'::jsonb,
+    p_request_id  => NULL::uuid
   );
 END;
 $$;
