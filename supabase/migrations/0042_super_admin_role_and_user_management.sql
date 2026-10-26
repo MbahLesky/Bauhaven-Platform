@@ -82,9 +82,9 @@ BEGIN
   IF v_assignment_id IS NOT NULL THEN
     -- Reactivate or update existing assignment
     UPDATE public.user_role_assignments
-    SET status = 'active',
+    SET status = 'active'::public.role_assignment_status,
         granted_by = auth.uid(),
-        assignment_type = coalesce(p_assignment_type, 'permanent'),
+        assignment_type = coalesce(p_assignment_type, 'permanent')::public.role_assignment_type,
         valid_from = now(),
         valid_until = p_valid_until,
         revoked_at = NULL,
@@ -109,12 +109,12 @@ BEGIN
       p_user_id,
       v_role_id,
       coalesce(p_scope_type, 'organisation'),
-      p_scope_id,
+      CASE WHEN coalesce(p_scope_type, 'organisation') = 'organisation' THEN NULL ELSE p_scope_id END,
       auth.uid(),
-      coalesce(p_assignment_type, 'permanent'),
+      coalesce(p_assignment_type, 'permanent')::public.role_assignment_type,
       now(),
       p_valid_until,
-      'active'
+      'active'::public.role_assignment_status
     )
     RETURNING id INTO v_assignment_id;
   END IF;
@@ -211,7 +211,7 @@ BEGIN
   END IF;
 
   UPDATE public.user_role_assignments
-  SET status = 'revoked',
+  SET status = 'revoked'::public.role_assignment_status,
       revoked_at = now(),
       revoked_by = auth.uid(),
       revocation_reason = coalesce(p_reason, 'Revoked by Super Admin'),
