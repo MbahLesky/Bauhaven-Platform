@@ -1,33 +1,21 @@
 // approve-application
 //
-// Privileged Bauhaven Admin operation: approves an admissions application
-// and turns it into a real platform account. Follows the operation contract
-// in the platform's API/Edge-Function technical document (approve-application
-// entry) and the approval steps in 04_BAUHAVEN_DATABASE_SCHEMA.md section 15.2:
-//   1. authenticate and authorize the reviewer (private.has_permission
-//      ('applications.decide'), not just "is signed in").
-//   2. lock/check application state.
-//   3. detect/link identity safely (find-or-invite by email).
-//   4. create the application_approvals record.
-//   5. create the enrolment.
-//   6. create/record the invitation.
-//   7. append status history and audit event (status history happens
-//      automatically via the applications_record_status_history trigger).
-//   8. queue email (delegated to Supabase Auth's own invite email).
-//   9. return a stable, idempotent result.
+// Privileged Bauhaven Admin operation: approves an admissions application,
+// creates the enrolment record, issues a secure self-service admission/invitation code,
+// and notifies the applicant via email.
 //
-// Idempotency: application_id is the natural idempotency key (this matches
-// the platform's own API contract note: "retries reuse enrolment and
-// invitation state") - enforced by the unique indexes on
-// application_approvals.application_id and enrolments.application_id, not by
-// the generic idempotency_keys table (that table exists for other future
-// functions - see supabase/migrations/0006_audit_and_idempotency.sql).
+// Self-Service Onboarding Model:
+//   - DOES NOT create a passwordless auth user in auth.users.
+//   - Creates a pending_activation enrolment.
+//   - Generates an admission code (e.g. BAU-A1B2C3) stored with SHA-256 hash in public.invitations.
+//   - Emails the applicant their admission code and direct link to activate their account
+//     at https://hub.bauhaven.com/activate?code=BAU-A1B2C3.
+//   - The applicant visits the activation page, sets their own chosen password, which creates
+//     and activates their account cleanly via activate-participant-account.
 //
-// Deploy with: supabase functions deploy approve-application
-// Required secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (injected
-// automatically for every Edge Function - never hardcode them).
+// Deploy with: supabase functions deploy approve-application --no-verify-jwt
+// Required secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY / RESEND_API_KEY_APPLICATIONS
 
-// npm:, not jsr: - see invite-administrator's identical comment for why.
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
 interface ApprovePayload {
@@ -39,27 +27,33 @@ interface ApprovePayload {
   end_date?: string | null;
 }
 
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    },
   });
 }
 
-// A brand-new applicant gets Supabase Auth's own invite email
-// (inviteUserByEmail below) - that link doubles as their approval
-// notification. Someone who *already* has a Bauhaven profile (a returning
-// applicant, staff re-running this, etc.) gets no invite email at all,
-// since none is needed - so without this, they'd never learn their
-// application was approved. Best-effort only: a failure here must never
-// undo or fail the approval itself, which has already fully succeeded by
-// the time this is called.
 interface ApprovalEmailDetails {
   name: string;
   offeringTitle?: string;
   cohortName?: string;
   startDate?: string;
-  portalUrl?: string;
+  admissionCode?: string;
+  activationUrl: string;
+  isExistingUser: boolean;
 }
 
 function renderApprovalHtml(details: ApprovalEmailDetails): string {
@@ -67,7 +61,8 @@ function renderApprovalHtml(details: ApprovalEmailDetails): string {
   const offeringTitle = details.offeringTitle || 'Bauhaven Programme';
   const cohortName = details.cohortName || 'Active Cohort';
   const startDate = details.startDate || 'Scheduled shortly';
-  const portalUrl = details.portalUrl || Deno.env.get('HUB_PORTAL_URL') || Deno.env.get('ACADEMY_PORTAL_URL') || 'https://hub.bauhaven.com';
+  const { activationUrl, admissionCode, isExistingUser } = details;
+
   return `<!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -136,17 +131,32 @@ function renderApprovalHtml(details: ApprovalEmailDetails): string {
                 </tr>
               </table>
 
+              ${
+                !isExistingUser && admissionCode
+                  ? `
+              <!-- Admission Code Card -->
+              <div style="background-color: #F0F9FF; border: 1px dashed #0284C7; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
+                <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #0369A1; display: block; margin-bottom: 8px;">Your Admission Code</span>
+                <span style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; font-size: 26px; font-weight: 800; letter-spacing: 3px; color: #0F172A; display: inline-block; padding: 4px 12px; background: #FFFFFF; border-radius: 6px; border: 1px solid #BAE6FD;">${admissionCode}</span>
+                <p style="font-size: 13px; line-height: 1.5; color: #475569; margin: 12px 0 0 0;">
+                  Click the button below to set your password and access your Bauhaven Hub account.
+                </p>
+              </div>
+              `
+                  : ''
+              }
+
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 28px 0 20px 0;">
                 <tr>
                   <td align="center" style="border-radius: 6px; background-color: #D72638;">
-                    <a href="${portalUrl}" target="_blank" style="display: inline-block; padding: 14px 34px; font-family: 'Montserrat', Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 6px; letter-spacing: 0.5px; text-transform: uppercase;">
-                      Open Hub Portal &rarr;
+                    <a href="${activationUrl}" target="_blank" style="display: inline-block; padding: 14px 34px; font-family: 'Montserrat', Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 6px; letter-spacing: 0.5px; text-transform: uppercase;">
+                      ${isExistingUser ? 'Open Hub Portal &rarr;' : 'Activate Account & Set Password &rarr;'}
                     </a>
                   </td>
                 </tr>
               </table>
               <p style="font-size: 12px; line-height: 1.5; color: #777777; margin: 20px 0 0 0;">
-                Portal link: <a href="${portalUrl}" target="_blank" style="color: #26AAD1; text-decoration: underline;">${portalUrl}</a>
+                Direct link: <a href="${activationUrl}" target="_blank" style="color: #26AAD1; text-decoration: underline;">${activationUrl}</a>
               </p>
             </td>
           </tr>
@@ -168,7 +178,7 @@ async function sendApprovalEmail(email: string, details: ApprovalEmailDetails): 
   const apiKey = Deno.env.get('RESEND_API_KEY_APPLICATIONS') || Deno.env.get('RESEND_API_KEY');
   if (!apiKey) return;
   const fromEmail = Deno.env.get('RESEND_FROM_APPLICATIONS') || Deno.env.get('RESEND_APPLICATIONS_FROM') || 'Bauhaven Admissions <admissions@bauhaven.com>';
-  const portalUrl = details.portalUrl || Deno.env.get('HUB_PORTAL_URL') || Deno.env.get('ACADEMY_PORTAL_URL') || 'https://hub.bauhaven.com';
+  
   try {
     // 1. Primary delivery: Use official published Resend template 'application-approval'
     const res = await fetch('https://api.resend.com/emails', {
@@ -186,7 +196,10 @@ async function sendApprovalEmail(email: string, details: ApprovalEmailDetails): 
             offering_title: details.offeringTitle || 'Bauhaven Programme',
             cohort_name: details.cohortName || 'Active Cohort',
             start_date: details.startDate || 'Scheduled shortly',
-            portal_url: portalUrl,
+            portal_url: details.activationUrl,
+            activation_url: details.activationUrl,
+            admission_code: details.admissionCode || '',
+            activation_code: details.admissionCode || '',
           },
         },
       }),
@@ -201,16 +214,25 @@ async function sendApprovalEmail(email: string, details: ApprovalEmailDetails): 
           from: fromEmail,
           to: [email],
           subject: 'Your Bauhaven application has been approved',
-          html: renderApprovalHtml({ ...details, portalUrl }),
+          html: renderApprovalHtml(details),
         }),
       });
     }
   } catch {
-    // Best-effort - see comment above.
+    // Best-effort
   }
 }
 
 Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+      },
+    });
+  }
+
   if (req.method !== 'POST') {
     return jsonResponse({ error: 'Method not allowed' }, 405);
   }
@@ -226,8 +248,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: 'Missing Authorization header.' }, 401);
   }
 
-  // Client scoped to the caller's own JWT, used only to identify who is
-  // calling. All privileged reads/writes below use the service-role client.
+  // Caller client verification
   const callerClient: SupabaseClient = createClient(supabaseUrl, serviceRoleKey, {
     global: { headers: { Authorization: authHeader } },
     auth: { autoRefreshToken: false, persistSession: false },
@@ -267,21 +288,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: 'Application not found.' }, 404);
   }
 
-  // Scoped to this application's offering, not a bare organisation-wide
-  // check: has_permission_for()'s 'organisation'-scope branch still short-
-  // circuits true for org-wide holders, while an offering-scoped
-  // programme_manager/internship_coordinator now also passes for
-  // applications within their own offering.
-  //
-  // Uses public.has_permission_for(p_user_id, ...) - migration 0015 -
-  // rather than private.has_permission(), which reads auth.uid() from the
-  // request's own JWT. Called through the service-role `admin` client (no
-  // session JWT for the real caller), auth.uid() always resolves to null
-  // there, and private.has_permission isn't exposed to PostgREST anyway -
-  // both bugs together meant this permission check has always failed,
-  // for every caller including super_admin, which surfaced as a generic
-  // "Permission denied" 403 with no visible sign it was actually a wiring
-  // bug. See migration 0015 and the audit doc for the live confirmation.
+  // Check decision permission
   const { data: canDecide, error: permError } = await admin.rpc('has_permission_for', {
     p_user_id: callerId,
     p_code: 'applications.decide',
@@ -300,8 +307,7 @@ Deno.serve(async (req: Request) => {
   }
 
   // Idempotency check: an approval record for this application already
-  // means it was approved before. Return the existing result rather than
-  // redoing work or sending a second invitation email.
+  // means it was approved before. Return the existing result.
   const { data: existingApproval } = await admin
     .from('application_approvals')
     .select('id, enrolment_id')
@@ -329,69 +335,19 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: 'Application has no email address on file.' }, 422);
   }
 
-  // Find an existing profile/auth user for this email before inviting a new
-  // one, so re-applicants and staff re-runs never create duplicate accounts.
+  // Check if applicant already has a registered user profile
   const { data: existingProfile } = await admin
     .from('profiles')
     .select('id')
     .ilike('email', email)
     .maybeSingle();
 
-  let userId: string;
-  let invited = false;
-  let portalUrl = Deno.env.get('HUB_PORTAL_URL') || Deno.env.get('ACADEMY_PORTAL_URL') || 'https://hub.bauhaven.com';
+  const isExistingUser = !!existingProfile;
+  const userId = existingProfile?.id ?? null;
+  const hubBase = Deno.env.get('HUB_PORTAL_URL') || Deno.env.get('ACADEMY_PORTAL_URL') || 'https://hub.bauhaven.com';
 
-  if (existingProfile) {
-    userId = existingProfile.id;
-  } else {
-    const academyBase = Deno.env.get('HUB_PORTAL_URL') || Deno.env.get('ACADEMY_PORTAL_URL') || 'https://hub.bauhaven.com';
-    // Generate invitation link directly rather than firing Supabase's default unbranded invite email.
-    // generateLink creates the user in auth.users and generates their action link without triggering the default mailer.
-    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-      type: 'invite',
-      email,
-      options: {
-        data: { full_name: application.applicant_name ?? '' },
-        redirectTo: `${academyBase}/auth/confirm?next=/set-password`,
-      },
-    });
-
-    if (linkError || !linkData?.user) {
-      // Fallback to inviteUserByEmail if generateLink is unavailable
-      const { data: invitedUser, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-        data: { full_name: application.applicant_name ?? '' },
-        redirectTo: `${academyBase}/auth/confirm?next=/set-password`,
-      });
-      if (inviteError || !invitedUser?.user) {
-        await admin.rpc('log_audit_event', {
-          p_actor_id: callerId,
-          p_action: 'application.approve_failed',
-          p_entity_type: 'application',
-          p_entity_id: application.id,
-          p_before: null,
-          p_after: null,
-          p_outcome: 'failure',
-          p_metadata: { reason: inviteError?.message ?? 'invite_failed' },
-          p_request_id: null,
-        });
-        return jsonResponse({ error: `Failed to invite applicant: ${inviteError?.message}` }, 500);
-      }
-      userId = invitedUser.user.id;
-    } else {
-      userId = linkData.user.id;
-      if (linkData.properties?.action_link) {
-        portalUrl = linkData.properties.action_link;
-      }
-    }
-    invited = true;
-  }
-
-  // Participant/Hub access comes from having an active `enrolments` row,
-  // not from a `roles` grant - the roles table's catalogue (BAU-ADMIN-AUTH-001
-  // section 5) only covers staff/admin roles. This function's first draft
-  // granted a 'learner' role here; that's removed as a corrected
-  // understanding of the v2.0 identity model, not a feature loss.
-
+  // 1. Create or upsert the enrolment
+  // Notice: profile_id is nullable (migration 0048), so we do NOT need to create a dummy user in auth.users!
   const { data: enrolment, error: enrolmentError } = await admin
     .from('enrolments')
     .upsert(
@@ -403,7 +359,7 @@ Deno.serve(async (req: Request) => {
         assigned_role: payload.assigned_role ?? 'Intern',
         mentor_id: payload.mentor_id ?? null,
         started_at: payload.start_date ?? null,
-        status: 'pending_activation',
+        status: isExistingUser ? 'active' : 'pending_activation',
       },
       { onConflict: 'application_id' },
     )
@@ -414,6 +370,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: `Failed to create enrolment: ${enrolmentError.message}` }, 500);
   }
 
+  // 2. Record the approval decision
   const { error: approvalError } = await admin.from('application_approvals').insert({
     application_id: application.id,
     decided_by: callerId,
@@ -429,15 +386,42 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: `Approved but failed to record the decision: ${approvalError.message}` }, 500);
   }
 
-  await admin.from('invitations').insert({
-    application_id: application.id,
-    enrolment_id: enrolment.id,
-    email,
-    status: invited ? 'sent' : 'accepted',
-    sent_at: invited ? new Date().toISOString() : null,
-    accepted_at: invited ? null : new Date().toISOString(),
-  });
+  // 3. Issue admission code & invitation
+  let admissionCode: string | undefined;
+  let activationUrl: string;
 
+  if (isExistingUser) {
+    // Existing user: mark invitation accepted and point them straight to hub login
+    await admin.from('invitations').insert({
+      application_id: application.id,
+      enrolment_id: enrolment.id,
+      email,
+      status: 'accepted',
+      sent_at: new Date().toISOString(),
+      accepted_at: new Date().toISOString(),
+    });
+    activationUrl = `${hubBase}/login`;
+  } else {
+    // New applicant: generate clean, human-friendly admission code
+    const randomHex = crypto.randomUUID().replace(/[^a-zA-Z0-9]/g, '').substring(0, 6).toUpperCase();
+    admissionCode = `BAU-${randomHex}`;
+    const tokenHash = await sha256Hex(admissionCode);
+
+    await admin.from('invitations').insert({
+      application_id: application.id,
+      enrolment_id: enrolment.id,
+      email,
+      token: admissionCode,
+      token_hash: tokenHash,
+      status: 'sent',
+      sent_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+
+    activationUrl = `${hubBase}/activate?code=${admissionCode}`;
+  }
+
+  // 4. Update application status
   const { error: updateError } = await admin
     .from('applications')
     .update({
@@ -450,7 +434,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: `Approved but failed to update application status: ${updateError.message}` }, 500);
   }
 
-  // Deliver official Resend template 'application-approval' to all approved applicants
+  // 5. Send approval notification email
   let offeringTitle: string | undefined;
   if (application.offering_id) {
     const { data: offering } = await admin
@@ -476,9 +460,12 @@ Deno.serve(async (req: Request) => {
     offeringTitle,
     cohortName,
     startDate: payload.start_date ?? undefined,
-    portalUrl,
+    admissionCode,
+    activationUrl,
+    isExistingUser,
   });
 
+  // 6. Log audit event
   await admin.rpc('log_audit_event', {
     p_actor_id: callerId,
     p_action: 'application.approved',
@@ -487,7 +474,7 @@ Deno.serve(async (req: Request) => {
     p_before: { status: application.status },
     p_after: { status: 'approved', enrolment_id: enrolment.id, user_id: userId },
     p_outcome: 'success',
-    p_metadata: { invited },
+    p_metadata: { invited: !isExistingUser, admission_code: admissionCode ?? null },
     p_request_id: null,
   });
 
@@ -497,6 +484,7 @@ Deno.serve(async (req: Request) => {
     applicationId: application.id,
     userId,
     enrolmentId: enrolment.id,
-    invited,
+    invited: !isExistingUser,
+    admissionCode: admissionCode ?? null,
   });
 });
