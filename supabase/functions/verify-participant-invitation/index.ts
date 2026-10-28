@@ -122,3 +122,4 @@ Deno.serve(async (req: Request) => {
     accepted_at: invitation.accepted_at,
   });
 });
+
