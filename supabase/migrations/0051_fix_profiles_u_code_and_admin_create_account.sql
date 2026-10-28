@@ -244,3 +244,4 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.admin_create_account(text, text, text, text, text, uuid, uuid, uuid, text) TO authenticated, service_role;
+
