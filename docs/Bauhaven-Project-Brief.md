@@ -6,7 +6,30 @@ Bauhaven runs programs for interns, students, holiday-makers, and staff — cour
 
 This brief is the front door. Everything else referenced here already exists — read this first, then go to the specific doc for the task at hand.
 
-## The repos, starting web-first
+## Active Platform Repositories
+
+| Repo | What it is | Status |
+|---|---|---|
+| `Bauhaven-Platform` | Supabase backend (PostgreSQL, Auth, RLS, Edge Functions) + canonical docs. Shared backbone for all apps. | **Active & Authoritative** — migrations 0001–0053 applied |
+| `Bauhaven-Admin-Web` | Next.js 16 (App Router) — administrative operations, programmes, applications, enrolment, attendance, assets, content editor, finance. | **Active (`v0.1.1`)** — fully tested and verified |
+| `Bauhaven-Academy-Web` | Next.js 16 (App Router) — learner portal (dashboard, tasks, attendance, absence requests, tuition coverage tracking). | **Active (`v0.1.1`)** — fully tested and verified |
+| `bauhaven-admin` | Flutter mobile app — companion admin operations (approvals, attendance, finance, enrolment status). | **Active (`v1.2.2+8`)** |
+| `bauhaven-hub2` | Flutter mobile app — mobile learner Hub (tasks, attendance check-in, tuition coverage card). | **Active (`v1.1.2+4`)** |
+| `bauhaven_ft` | Flutter mobile app — dedicated offline-first finance tracker & accounting ledger. | **Active (`v1.1.2+7`)** |
+| `bauhaven-website` | Next.js public site — being transitioned into subdomains (`bauhaven.com`, `services.`, `academy.`, `hub.`, `blog.`). | **Active** — see `Bauhaven-Roadmap-Next-3-Months.md` |
+
+## Subdomain & LMS Evolution (Next Phase)
+
+The web ecosystem is transitioning from a single monolithic site into targeted subdomains:
+- **`bauhaven.com`**: Brand gateway, company story, teaser cards, and "Bawe" AI bot.
+- **`services.bauhaven.com`**: Digital agency services (branding, UI/UX, web/mobile apps, marketing, quote intake).
+- **`academy.bauhaven.com`**: Complete catalog of courses, cohorts, and holiday bootcamps with MoMo/Card checkout.
+- **`hub.bauhaven.com`**: Interactive 30-day online LMS, quizzes, daily streak gamification, and task delivery.
+- **`blog.bauhaven.com`**: Articles, technical tutorials, and student project retrospectives.
+
+See **[`Bauhaven-Roadmap-Next-3-Months.md`](Bauhaven-Roadmap-Next-3-Months.md)** for detailed specifications.
+
+## Historical Repository Notes (Archived)
 
 Three repos to start — native apps get their own repos when that track begins, not before.
 

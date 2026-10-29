@@ -20,7 +20,7 @@ Rationale for this split:
 - **Admin** consolidates what would otherwise be three separate internal apps (course/program management, finance, assets) into one — a Programme Manager checking attendance and an Auditor checking transactions shouldn't need two logins and two tools. Permissions scope what each sub-role sees within it.
 - **Academy** stays a separate app from Admin because it's a different user base entirely (interns/students, not staff) with different UI needs — and it should not carry any finance/asset access at all.
 - **Web + native for both Admin and Academy:** covers both desk-based back-office work and mobile/on-site use (attendance check-in, field access, push notifications) without forcing one client to be a compromise for the other's use case. This roughly doubles frontend engineering effort per app — a deliberate tradeoff, not a free upgrade.
-- **Site** already exists and is live. This plan does not rebuild it — the new work is a **content editor inside Bauhaven Admin** that manages what the live site displays (see Section 5).
+- **Site** evolves from a single monolithic site into structured subdomains (`bauhaven.com` Gateway, `services.bauhaven.com` Agency, `academy.bauhaven.com` Courses & Checkout, `hub.bauhaven.com` LMS, and `blog.bauhaven.com`). See `Bauhaven-Roadmap-Next-3-Months.md` for the complete specification.
 
 ## 3. Connectivity model
 
