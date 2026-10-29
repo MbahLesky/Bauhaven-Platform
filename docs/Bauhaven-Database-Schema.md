@@ -272,3 +272,13 @@ They are two different rows, and conflating them is the easy mistake:
 - [x] Indexes justified by a named query above
 - [x] Ownership path exists on every table for future RLS
 - [x] RLS policies — implemented in `002_row_level_security.sql`, tested against live sessions, one recursion bug found and fixed
+
+## Schema Evolution (Migrations 0048 – 0053)
+
+| Migration | Purpose | Key Alterations & Additions |
+|---|---|---|
+| `0048_learner_invitations_and_enrolments.sql` | Streamlined onboarding | Invitation redemption tokens, cohort auto-enrolment, user activation without dummy passwords |
+| `0049_fix_admin_delete_and_role_management.sql` & `0050` | Super Admin account deletion | Cascading user deletion RPC (`admin_delete_user`) cleaning up profiles and role assignments |
+| `0051_fix_profiles_u_code_and_admin_create_account.sql` | Unique user code generator | Sequence `seq_user_u_code` and trigger `trg_assign_profile_u_code` auto-generating `BH-YY-XXXX` codes |
+| `0052_flexible_attendance_and_recurrence.sql` | Recurrence & custom targeting | `attendance_sessions` columns: `recurrence_rule`, `days_of_week`, `repeat_until`, `audience_type`; new table `attendance_roster` |
+| `0053_link_finance_to_users_and_progress_coverage.sql` | Finance user linking & tuition progress | Added `profile_id` to `finance_legacy_participants`; `payer_profile_id`, `enrolment_id`, `period_start`, `period_end` to `finance_income`; learner RLS policies; created `finance_participant_balances` SQL view |

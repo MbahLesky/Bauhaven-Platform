@@ -551,6 +551,15 @@ curation is an editorial workflow feeding the public Site, not an approval queue
 sits behind the deferred consent question in the Project Brief's "Known open items", which
 is worth settling in the same pass rather than before it.
 
+### Dashboard & Tuition Coverage — decisions made while building the screen
+
+- **Fractional month tuition coverage & expiration tracking — built (migration `0053`).**
+  Tuition records now bridge with registered learner profiles and active enrolments:
+  - **Coverage math:** When a learner makes a partial payment (e.g. 15,000 XAF towards a 20,000 XAF monthly cycle = 75% coverage), the system calculates covered days (30 days * 0.75 = 22.5 days).
+  - **Progress indicator & expiration warning:** The learner's dashboard displays a `TuitionCoverageCard` tracking time elapsed through the covered cycle.
+  - **Expiration callout:** As long as coverage is active, it shows progress in green/amber. Once the covered time expires (e.g. after week 3), the progress bar becomes 100% full and bright red, prompting the user with an urgent callout to pay the outstanding balance to maintain active status.
+  - **Available across Web and Flutter:** Built natively in `Bauhaven-Academy-Web` (`TuitionCoverageCard.tsx`) and `bauhaven-hub2` (`tuition_providers.dart` + `home_cards.dart`).
+
 ## 8. Confirmed decisions
 
 - **Attendance scope:** a User can only check in to sessions tied to Programs they're actively enrolled in — not a general, program-less check-in. Enforced at the database level via RLS (tested: enrolled succeeds, non-enrolled is blocked, Staff/Admin logging on someone's behalf bypasses the check since they're not self-checking-in).

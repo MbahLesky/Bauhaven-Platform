@@ -180,6 +180,17 @@ Admin is the consolidated internal back-office — what would otherwise have bee
   which roles may be enrolled isn't settled anywhere, and inventing a filter would
   quietly hide people an Admin legitimately needs to enrol. Emails disambiguate.
 
+- **Enrollment financial progress display — built (migration `0053`).**
+  The Enrollment screen matches each enrollment to `finance_participant_balances` (by `enrolment_id`
+  or `profile_id`). A compact linear progress bar and status badge appear beside each learner's name,
+  showing the amount remaining (e.g. `5,000 XAF left` or `Paid`), color-coded emerald, amber, or red.
+  Mobile cards display the same badge and bar compactly beside the student's name.
+
+- **Super Admin user deletion & `u_code` auto-generation — built (migrations `0049`, `0050`, `0051`).**
+  Super Admins can delete users via secure RPC that cascades across auth and profile associations.
+  Admin user creation automatically generates unique user codes (e.g. `BH-26-1001`) via sequence and trigger,
+  preventing null constraint errors.
+
 ### Applications — decisions made while building the screen
 
 - **The Admin-only approval rule is now enforced in the database**, not just the UI.
@@ -352,6 +363,11 @@ These came out of implementing the Attendance screen in `bauhaven-admin-web`.
   Both the change and the reasoning that led to it are in "Approvals & triage" below;
   keeping the original prediction visible matters because the read-path version is what a
   future reader would otherwise expect to find.)*
+
+- **Multi-day weekly recurrence & flexible audience targeting — built (migration `0052`).**
+  Attendance sessions now support recurring schedules and custom targeting:
+  - **Recurrence:** Admins can select multiple days of the week (e.g. Tuesdays, Wednesdays, and Fridays) and specify repeated duration (e.g. 1 month or a custom end date) with daily start/end times.
+  - **Audience targeting (`audience_type`):** In addition to cohort-scoped sessions (`audience_type = 'cohort'`), sessions can target specific individual user profiles (`audience_type = 'individuals'`), rostered explicitly in `attendance_roster`. This allows taking attendance for custom groups across learners, staff, and administrators.
 
 ### Who can open Admin-web at all
 
@@ -682,6 +698,13 @@ These came out of implementing the Finance screen in `bauhaven-admin-web`.
   real audit affordance, but it isn't in the wireframe's form or this pass's scope. Worth
   adding when receipts are actually being filed; noted here so its absence is a decision
   rather than an oversight.
+
+- **User-linked financial records & enrollment payment progress — built (migration `0053`).**
+  Financial income records (`finance_income`) and participant charges now link directly to user profiles
+  (`profiles(id)`) and enrolments (`enrolments(id)`). On the Enrollment screen across both Admin Web and
+  the Flutter Admin mobile app, admins can view payment completion at a glance via an inline progress bar
+  and balance status badge beside each participant's name (e.g. `5,000 XAF left` or `Paid`). RLS policies
+  enable learners to view their own tuition records while keeping administrative ledger access restricted.
 
 ### Assets — decisions made while building the screen
 
