@@ -51,3 +51,15 @@ supabase/
 - `0035_assets.sql`: `assets` inventory table + RLS policies.
 - `0036_cms_staff_editing.sql`: Staff `cms.publish` update policies on `page_sections`, `projects`, `testimonials`, and learner policies on `website_reviews`.
 - `0037_admin_account_and_role_management.sql`: Direct account creation (`admin_create_account`) and role assignment revocation (`admin_revoke_role_assignment`).
+- `0038`–`0047`: Role re-alignment, operational grants, FCM device tokens, Super Admin user management, avatars storage bucket, and status history trigger fixes.
+- `0048`–`0051`: Onboarding invitation redemption, Super Admin cascading user deletion RPCs (`admin_delete_user`), and unique user code auto-generation (`BH-YY-XXXX`) on `profiles`.
+- `0052_flexible_attendance_and_recurrence.sql`: Multi-day weekly recurrence patterns (`recurrence_rule`, `days_of_week`, `repeat_until`), audience targeting (`audience_type`), and `attendance_roster`.
+- `0053_link_finance_to_users_and_progress_coverage.sql`: User-linked financial income and participant records (`profile_id`, `enrolment_id`, `period_start`, `period_end`), learner RLS policies, and aggregated `finance_participant_balances` SQL view.
+
+## Documentation Index (`docs/`)
+
+- `Bauhaven-Roadmap-Next-3-Months.md`: Strategic roadmap for subdomains (`bauhaven.com`, `services.`, `academy.`, `hub.`), hybrid JSON course engine, online Hub LMS, and MoMo payment integration.
+- `ATTENDANCE_FINANCE_AND_ONBOARDING_UPDATE.md`: Architecture guide for migrations 0048–0053 (attendance recurrence, user-linked finance, onboarding fixes).
+- `Bauhaven-Admin-Feature-Spec.md`: Operational console specification for Admin & Staff.
+- `Bauhaven-Academy-Feature-Spec.md`: Learner Hub specification and tuition coverage engine.
+- `Bauhaven-Database-Schema.md`: Reference schema and evolution log.
